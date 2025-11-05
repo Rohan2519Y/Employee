@@ -12,7 +12,7 @@ export default function Payslip() {
     const [countData, setCountData] = useState([])
     const [balanceLeave, setBalanceLeave] = useState({ EL: 0, SL: 0 });
     const totalLeave = 20
-    const takenLeave = parseInt(countData[0]?.PL) + parseInt(countData[0]?.SL) + parseInt(countData[0]?.SHL) + parseInt(countData[0]?.HD)
+    const takenLeave = parseInt(countData[0]?.PL) + parseInt(countData[0]?.SL) + parseFloat(countData[0]?.SHL) + parseFloat(countData[0]?.HD)
 
     const formatCurrency = (amount) => {
         const num = parseFloat(amount);
@@ -21,10 +21,12 @@ export default function Payslip() {
     };
 
     const currentDate = new Date();
-    const year = currentDate.getFullYear();
-    const month = currentDate.getMonth() + 1;
-    const monthName = currentDate.toLocaleString("default", { month: "short" });
+    const prevMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1);
+    const year = prevMonth.getFullYear();
+    const month = prevMonth.getMonth();
+    const monthName = prevMonth.toLocaleString("default", { month: "short" });
     const currentMonthYear = `${monthName} - ${year}`;
+
 
     const fetchPayslipData = async () => {
         const res = await postData('payslip/payslip_data_by_id', { payslipId: params.payslipid })
@@ -165,8 +167,12 @@ export default function Payslip() {
         const pdfWidth = pdf.internal.pageSize.getWidth();
         const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
         pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
-        pdf.save(`Payslip_${payslipData[0]?.name || "Employee"}.pdf`);
+
+        // ✅ Instead of saving directly, open in new tab for preview
+        const pdfBlobUrl = pdf.output("bloburl");
+        window.open(pdfBlobUrl, "_blank");
     };
+
 
     return (
         <div style={{ padding: '20px', backgroundColor: '#f5f5f5', minHeight: '100vh' }}>
@@ -218,9 +224,13 @@ export default function Payslip() {
                     <tbody>
                         <tr>
                             <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Days Paid</td>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate().toFixed(2)}</td>
+                            <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{new Date(new Date().getFullYear(), new Date().getMonth(), 0).getDate().toFixed(2)}</td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Days Present</td>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000' }}>20.00</td>
+                            <td style={{ padding: '5px 8px', border: '1px solid #000' }}>
+                                {(new Date(new Date().getFullYear(), new Date().getMonth(), 0).getDate().toFixed(2)) -
+                                    (Array.from({ length: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate() }, (_, i) =>
+                                        new Date(new Date().getFullYear(), new Date().getMonth(), i + 1)
+                                    ).filter(d => d.getDay() === 0).length) - (publicHolidays.toFixed(2))}</td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>W.Off/Pd.Off</td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{
                                 Array.from({ length: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate() }, (_, i) =>
@@ -229,7 +239,7 @@ export default function Payslip() {
                             } / {publicHolidays.toFixed(2)}</td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>LWP/Absent</td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000' }}>0.00 / 0.00</td>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Total</td>
+                            <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Total Leave</td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{totalLeave}</td>
                         </tr>
                         <tr>
@@ -237,24 +247,22 @@ export default function Payslip() {
                             <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{countData[0]?.PL || 0}</td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Sick / Casual Leave</td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{countData[0]?.SL || 0}</td>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Short Leave/ Half day</td>
+                            <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Short Leave / Half day</td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{countData[0]?.SHL || 0} / {countData[0]?.HD || 0}</td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>CO + / CO -</td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000' }}>0.00 / 0.00</td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Leave Taken</td>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{takenLeave}</td>
+                            <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{takenLeave || 0}</td>
                         </tr>
                         <tr>
                             <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Bal. PL</td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{balanceLeave?.PL?.toFixed(2)}</td>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Bal. Sick / Casual Leave</td>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{balanceLeave?.SL?.toFixed(2)}</td>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Bal. Short Leave / Half Day</td>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000' }}>8.00</td>
+                            <td colSpan={2} style={{ padding: '5px 0px 5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Bal. Half Day / Sick / Casual / Short Leave</td>
+                            <td colSpan={2} style={{ padding: '5px 8px', border: '1px solid #000' }}>{(totalLeave - countData[0]?.HD - countData[0]?.SHL - countData[0]?.SL)?.toFixed(2)}</td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Bal. CO</td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000' }}>0.00</td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Bal. Leave</td>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{totalLeave - takenLeave}</td>
+                            <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{totalLeave - takenLeave || 0}</td>
                         </tr>
                     </tbody>
                 </table>
