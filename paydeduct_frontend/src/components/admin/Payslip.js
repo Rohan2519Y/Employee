@@ -249,8 +249,8 @@ export default function Payslip() {
                             <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{countData[0]?.SL || 0}</td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Short Leave / Half day</td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{countData[0]?.SHL || 0} / {countData[0]?.HD || 0}</td>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>CO + / CO -</td>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000' }}>0.00 / 0.00</td>
+                            <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}></td>
+                            <td style={{ padding: '5px 8px', border: '1px solid #000' }}></td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Leave Taken</td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{takenLeave || 0}</td>
                         </tr>
@@ -259,8 +259,8 @@ export default function Payslip() {
                             <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{balanceLeave?.PL?.toFixed(2)}</td>
                             <td colSpan={2} style={{ padding: '5px 0px 5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Bal. Half Day / Sick / Casual / Short Leave</td>
                             <td colSpan={2} style={{ padding: '5px 8px', border: '1px solid #000' }}>{(totalLeave - countData[0]?.HD - countData[0]?.SHL - countData[0]?.SL)?.toFixed(2)}</td>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Bal. CO</td>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000' }}>0.00</td>
+                            <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}></td>
+                            <td style={{ padding: '5px 8px', border: '1px solid #000' }}></td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Bal. Leave</td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{totalLeave - takenLeave || 0}</td>
                         </tr>
@@ -347,7 +347,7 @@ export default function Payslip() {
                 {/* Footer */}
                 <div style={{ fontSize: '12px', paddingTop: '15px', borderTop: '1px solid #000' }}>
                     <div style={{ fontWeight: 'bold', fontSize: '14px', marginBottom: '5px' }}>Skillventory</div>
-                    <div>3rd & 4th Floor, 25/3, Ranka Mansion Y.N. Road, opposite Rani Sati Gate</div>
+                    <div>Numeric Infoysis PS Softech</div>
                 </div>
             </div>
             <button
