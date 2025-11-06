@@ -1,7 +1,6 @@
 var express = require('express');
 var router = express.Router();
 var pool = require('./pool');
-var upload = require('./multer')
 
 router.post('/insert_jobassign', function (req, res, next) {
     try {
@@ -22,7 +21,7 @@ router.post('/insert_jobassign', function (req, res, next) {
 
 router.get('/fetch_jobassign', function (req, res, next) {
     try {
-        pool.query('select C.*,JD.*,JA.* from company C,job_description JD,job_assign JA where C.company_id=JD.company_id and JD.job_id=JA.job_id', function (error, result) {
+        pool.query('select C.*,JD.*,JA.*,E.* from company C,job_description JD,job_assign JA,employees E where C.company_id=JD.company_id and JD.job_id=JA.job_id and JA.employee_id=E.employee_id', function (error, result) {
             if (error) {
                 console.log(error)
                 res.status(200).json({ status: false, message: 'Database Error,Pls Contact Backend Team' })
@@ -54,8 +53,8 @@ router.post('/edit_jobassign', function (req, res, next) {
     }
 });
 
-router.post('/delete_jobdescription', function (req, res, next) {
-    try {
+router.post('/delete_jobassign', function (req, res, next) {
+    try {console.log(req.body)
         pool.query("delete from job_assign where job_assign_id=?", [req.body.job_assign_id], function (error, result) {
             if (error) {
                 console.log(error)
