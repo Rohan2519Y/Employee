@@ -3,7 +3,7 @@ var pool = mysql.createPool({
     host: 'localhost',
     port: 3306,
     user: 'root',
-    password: '1234',
+    password: '12345',
     database: 'keka',
     multipleStatements: true,
     connectionLimit: 100
