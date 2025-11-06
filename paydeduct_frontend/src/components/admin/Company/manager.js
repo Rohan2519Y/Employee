@@ -214,68 +214,16 @@ export default function ManagerForm(){
         </Grid>
 
         {/* Assign Date */}
-        <Grid item size={6}>
-          <TextField
-            label="Assign Date"
-            type="date"
-            fullWidth
-            InputLabelProps={{ shrink: true }}
-            value={assignDate}
-            onChange={(e) => setAssignDate(e.target.value)}
-            error={!!errors.assignDate}
-            helperText={errors.assignDate}
-          />
-        </Grid>
+
 
         {/* Status */}
-        <Grid item size={6}>
-          <TextField
-            select
-            label="Status"
-            fullWidth
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-            error={!!errors.status}
-            helperText={errors.status}
-          >
-            <MenuItem value="Grant">Grant</MenuItem>
-            <MenuItem value="Remove">Remove</MenuItem>
-          </TextField>
-        </Grid>
+
 
         {/* Remove Date */}
-        <Grid item size={6}>
-          <TextField
-            label="Remove Date"
-            type="date"
-            fullWidth
-            InputLabelProps={{ shrink: true }}
-            value={removeDate}
-            onChange={(e) => setRemoveDate(e.target.value)}
-          />
-        </Grid>
+
 
         {/* Manager Status */}
-        <Grid
-          item
-          size={6}
-          sx={{ display: "flex", flexDirection: "column", alignItems: "center" }}
-        >
-          <FormLabel>Manager Status</FormLabel>
-          <RadioGroup
-            row
-            value={managerStatus}
-            onChange={(e) => setManagerStatus(e.target.value)}
-          >
-            <FormControlLabel value="Yes" control={<Radio />} label="Yes" />
-            <FormControlLabel value="No" control={<Radio />} label="No" />
-          </RadioGroup>
-          {errors.managerStatus && (
-            <Typography variant="caption" color="error">
-              {errors.managerStatus}
-            </Typography>
-          )}
-        </Grid>
+       
 
         {/* Submit Button */}
         <Grid item xs={12}>

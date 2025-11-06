@@ -28,18 +28,20 @@ export default function Company() {
   const [status, setstatus] = useState("");
   const [error, setError] = useState({});
 
- 
   const handleError = (field, message) => {
     setError((prev) => ({ ...prev, [field]: message }));
   };
 
-  
   const validation = () => {
     let isError = false;
     let newErrors = {};
 
     if (!companyName.trim()) {
       newErrors.companyName = "Please enter company name";
+      isError = true;
+    }
+    if (!user.trim()) {
+      newErrors.user = "Please enter user name";
       isError = true;
     }
 
@@ -66,10 +68,15 @@ export default function Company() {
       isError = true;
     }
 
+    // ✅ Added status validation
+    if (!status.trim()) {
+      newErrors.status = "Please select status";
+      isError = true;
+    }
+
     setError(newErrors);
     return isError;
   };
-
 
   const handleChangelogo = (e) => {
     const file = e.target.files[0];
@@ -81,7 +88,6 @@ export default function Company() {
       handleError("fileError", null);
     }
   };
-
 
   const handleChange = async () => {
     setError({});
@@ -96,7 +102,7 @@ export default function Company() {
     formData.append("companylogo", companyLogo.bytes);
     formData.append("created_date", getDate());
     formData.append("created_time", getTime());
-    formData.append("user", "xxxxxx");
+    formData.append("user", user);
     formData.append("status", status);
 
     const response = await postData("companys/insert_company", formData);
@@ -195,30 +201,28 @@ export default function Company() {
         </Grid>
 
         <Grid size={6}>
-<TextField
-  label="Contact Person"
-  name="contactPerson"
-  value={contactPerson}
-  onChange={(e) => {
-    const value = e.target.value;
-   
-    if (/^[A-Za-z\s]*$/.test(value)) {
-      setcontactPerson(value);
-      setError((prev) => ({ ...prev, contactPerson: "" }));
-    } else {
-      setError((prev) => ({
-        ...prev,
-        contactPerson: "Only alphabets are allowed",
-      }));
-    }
-  }}
-  fullWidth
-  margin="normal"
-  required
-  error={!!error.contactPerson}
-  helperText={error.contactPerson}
-/>
-
+          <TextField
+            label="Contact Person"
+            name="contactPerson"
+            value={contactPerson}
+            onChange={(e) => {
+              const value = e.target.value;
+              if (/^[A-Za-z\s]*$/.test(value)) {
+                setcontactPerson(value);
+                setError((prev) => ({ ...prev, contactPerson: "" }));
+              } else {
+                setError((prev) => ({
+                  ...prev,
+                  contactPerson: "Only alphabets are allowed",
+                }));
+              }
+            }}
+            fullWidth
+            margin="normal"
+            required
+            error={!!error.contactPerson}
+            helperText={error.contactPerson}
+          />
         </Grid>
 
         <Grid size={6}>
@@ -240,9 +244,20 @@ export default function Company() {
           <TextField
             label="Mobile No"
             name="mobileNo"
-          
+            type="tel"
             value={mobileNo}
-            onChange={(e) => setmobileNo(e.target.value)}
+            onChange={(e) => {
+              const value = e.target.value;
+              if (/^[0-9]*$/.test(value)) {
+                setmobileNo(value);
+                setError((prev) => ({ ...prev, mobileNo: "" }));
+              } else {
+                setError((prev) => ({
+                  ...prev,
+                  mobileNo: "Only numbers are allowed",
+                }));
+              }
+            }}
             fullWidth
             margin="normal"
             required
@@ -259,6 +274,9 @@ export default function Company() {
             onChange={(e) => setuser(e.target.value)}
             fullWidth
             margin="normal"
+            required
+            error={!!error.user}
+            helperText={error.user}
           />
         </Grid>
 
@@ -272,6 +290,8 @@ export default function Company() {
             fullWidth
             margin="normal"
             required
+            error={!!error.status}
+            helperText={error.status}
           >
             <MenuItem value="Active">Active</MenuItem>
             <MenuItem value="Hold">Hold</MenuItem>
