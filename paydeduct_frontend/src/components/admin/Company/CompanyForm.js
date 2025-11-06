@@ -195,17 +195,30 @@ export default function Company() {
         </Grid>
 
         <Grid size={6}>
-          <TextField
-            label="Contact Person"
-            name="contactPerson"
-            value={contactPerson}
-            onChange={(e) => setcontactPerson(e.target.value)}
-            fullWidth
-            margin="normal"
-            required
-            error={!!error.contactPerson}
-            helperText={error.contactPerson}
-          />
+<TextField
+  label="Contact Person"
+  name="contactPerson"
+  value={contactPerson}
+  onChange={(e) => {
+    const value = e.target.value;
+   
+    if (/^[A-Za-z\s]*$/.test(value)) {
+      setcontactPerson(value);
+      setError((prev) => ({ ...prev, contactPerson: "" }));
+    } else {
+      setError((prev) => ({
+        ...prev,
+        contactPerson: "Only alphabets are allowed",
+      }));
+    }
+  }}
+  fullWidth
+  margin="normal"
+  required
+  error={!!error.contactPerson}
+  helperText={error.contactPerson}
+/>
+
         </Grid>
 
         <Grid size={6}>
@@ -227,7 +240,7 @@ export default function Company() {
           <TextField
             label="Mobile No"
             name="mobileNo"
-            type="tel"
+          
             value={mobileNo}
             onChange={(e) => setmobileNo(e.target.value)}
             fullWidth

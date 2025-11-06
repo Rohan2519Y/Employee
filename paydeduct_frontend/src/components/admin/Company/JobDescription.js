@@ -189,7 +189,7 @@ export default function JobDescription() {
           <TextField
             label="LPA"
             name="lpa"
-            type="email"
+          
             value={lpa}
             onChange={(e) => setlpa(e.target.value)}
             fullWidth
