@@ -164,14 +164,20 @@ export default function ManagerForm(){
 
         {/* Manager Name */}
         <Grid item size={6}>
-          <TextField
-            label="Manager Name"
-            fullWidth
-            value={managerName}
-            onChange={(e) => setManagerName(e.target.value)}
-            error={!!errors.managerName}
-            helperText={errors.managerName}
-          />
+<TextField
+  label="Manager Name"
+  fullWidth
+  value={managerName}
+  onChange={(e) => {
+    const value = e.target.value;
+    if (/^[a-zA-Z\s]*$/.test(value)) {
+      setManagerName(value);
+    }
+  }}
+  error={!!errors.managerName}
+  helperText={errors.managerName}
+/>
+
         </Grid>
 
         {/* Email ID */}

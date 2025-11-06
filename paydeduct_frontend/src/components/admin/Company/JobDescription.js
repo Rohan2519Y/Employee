@@ -17,7 +17,6 @@ import { getData, getDate, postData, getTime } from '../../../backendservices/Fe
 export default function JobDescription() {
 
   const [job_title, setjob_title] = useState("");
-
   const [job_location, setjob_location] = useState('');
   const [lpa, setlpa] = useState('');
   const [exp_min, setexp_min] = useState("");
@@ -33,10 +32,14 @@ export default function JobDescription() {
     setError((prev) => ({ ...prev, [field]: message }));
   };
 
-
   const validation = () => {
     let isError = false;
     let newErrors = {};
+
+    if (!companydd.trim()) {
+      newErrors.companydd = "Please select company";
+      isError = true;
+    }
 
     if (!job_title.trim()) {
       newErrors.job_title = "Please enter company name";
@@ -54,36 +57,43 @@ export default function JobDescription() {
     }
 
     if (!exp_min.trim()) {
-      newErrors.exp_min = "Please enter mobile number";
-      isError = true;
-    } else if (exp_min.length !== 10) {
-      newErrors.exp_min = "Mobile number must be 10 digits";
+      newErrors.exp_min = "Please enter minimum experience";
       isError = true;
     }
 
+    if (!exp_max.trim()) {
+      newErrors.exp_max = "Please enter maximum experience";
+      isError = true;
+    }
 
+    if (!job_des.trim()) {
+      newErrors.job_des = "Please enter job description";
+      isError = true;
+    }
 
     setError(newErrors);
     return isError;
   };
 
   const handlecompany = (e) => {
-
     setcompanydd(e.target.value)
   }
+
   const fetchAllCompany = async () => {
     var response = await getData("companys/fetch_company");
     setcompanyList(response.data)
   }
+
   useEffect(function () {
     fetchAllCompany();
   }, []);
+
   const fillAllCompany = () => {
     return companyList.map((item) => (
       <MenuItem value={item.company_id}>{item.companyname}</MenuItem>
     ))
-
   }
+
   const handleChange = async () => {
     setError({});
     const hasError = validation();
@@ -97,7 +107,6 @@ export default function JobDescription() {
       exp_max: exp_max,
       job_des: job_des,
       company_id: companydd,
-     
     };
 
     const response = await postData("jobdescription/insert_jobdescription", body);
@@ -136,13 +145,12 @@ export default function JobDescription() {
       }}
     >
       <Typography variant="h5" mb={2} align="center">
-        Company Registration Form
+        Job Description Registration Form
       </Typography>
-      {/* job_id, company_id, job_title, job_location, lpa, exp_min, exp_max, job_des */}
       <Grid container spacing={2}>
 
         <Grid size={12}>
-          <FormControl fullWidth>
+          <FormControl fullWidth error={!!error.companydd}>
             <InputLabel>company</InputLabel>
             <Select
               label="company"
@@ -152,9 +160,12 @@ export default function JobDescription() {
             >
               {fillAllCompany()}
             </Select>
+            {error.companydd && (
+              <Typography variant="caption" color="error">{error.companydd}</Typography>
+            )}
           </FormControl>
-
         </Grid>
+
         <Grid size={12}>
           <TextField
             label="job_title"
@@ -168,8 +179,6 @@ export default function JobDescription() {
             helperText={error.job_title}
           />
         </Grid>
-
-
 
         <Grid size={6}>
           <TextField
@@ -185,61 +194,95 @@ export default function JobDescription() {
           />
         </Grid>
 
-        <Grid size={6}>
-          <TextField
-            label="LPA"
-            name="lpa"
-          
-            value={lpa}
-            onChange={(e) => setlpa(e.target.value)}
-            fullWidth
-            margin="normal"
-            required
-            error={!!error.lpa}
-            helperText={error.lpa}
-          />
-        </Grid>
+<Grid size={6}>
+  <TextField
+    label="LPA"
+    name="lpa"
+    value={lpa}
+    onChange={(e) => {
+      const value = e.target.value;
+      if (/^[0-9]*$/.test(value)) {
+        setlpa(value);
+        setError((prev) => ({ ...prev, lpa: "" }));
+      } else {
+        setError((prev) => ({
+          ...prev,
+          lpa: "Only numbers are allowed",
+        }));
+      }
+    }}
+    fullWidth
+    margin="normal"
+    required
+    error={!!error.lpa}
+    helperText={error.lpa}
+  />
+</Grid>
 
-        <Grid size={6}>
-          <TextField
-            label="exp_min"
-            name="exp_min"
-            type="text"
-            value={exp_min}
-            onChange={(e) => setexp_min(e.target.value)}
-            fullWidth
-            margin="normal"
-            required
-            error={!!error.exp_min}
-            helperText={error.exp_min}
-          />
-        </Grid>
+<Grid size={6}>
+  <TextField
+    label="exp_min"
+    name="exp_min"
+    type="text"
+    value={exp_min}
+    onChange={(e) => {
+      const value = e.target.value;
+      if (/^[0-9]*$/.test(value)) {
+        setexp_min(value);
+        setError((prev) => ({ ...prev, exp_min: "" }));
+      } else {
+        setError((prev) => ({
+          ...prev,
+          exp_min: "Only numbers are allowed",
+        }));
+      }
+    }}
+    fullWidth
+    margin="normal"
+    required
+    error={!!error.exp_min}
+    helperText={error.exp_min}
+  />
+</Grid>
 
-        <Grid size={6}>
-          <TextField
-            label="exp_max"
-            name="exp_max"
-            value={exp_max}
-            onChange={(e) => setexp_max(e.target.value)}
-            fullWidth
-            margin="normal"
-          />
-        </Grid>
+<Grid size={6}>
+  <TextField
+    label="exp_max"
+    name="exp_max"
+    value={exp_max}
+    onChange={(e) => {
+      const value = e.target.value;
+      if (/^[0-9]*$/.test(value)) {
+        setexp_max(value);
+        setError((prev) => ({ ...prev, exp_max: "" }));
+      } else {
+        setError((prev) => ({
+          ...prev,
+          exp_max: "Only numbers are allowed",
+        }));
+      }
+    }}
+    fullWidth
+    margin="normal"
+    required
+    error={!!error.exp_max}
+    helperText={error.exp_max}
+  />
+</Grid>
 
         <Grid size={12}>
-          <label htmlFor="job_des"></label>
           <TextField
             label="Job Description"
             name="job_des"
             value={job_des}
             onChange={(e) => setjob_des(e.target.value)}
-
             fullWidth
             margin="normal"
-
+            required
+            error={!!error.job_des}
+            helperText={error.job_des}
           />
         </Grid>
-
 
         <Grid size={12}>
           <Button
