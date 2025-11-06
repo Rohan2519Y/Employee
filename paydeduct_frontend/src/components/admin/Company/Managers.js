@@ -15,7 +15,7 @@ import { postData, getData } from "../../../backendservices/FetchNodeServices";
 import Swal from "sweetalert2";
 import { useNavigate } from "react-router-dom";
 
-export default function ManagerForm(){
+export default function ManagerForm() {
   const [companyList, setCompanyList] = useState([]);
   const [jobList, setJobList] = useState([]);
 
@@ -65,17 +65,14 @@ export default function ManagerForm(){
     temp.emailId = emailId ? "" : "Please enter email";
     temp.mobileNo = mobileNo ? "" : "Please enter mobile no";
     temp.othContactNo = othContactNo ? "" : "Please enter other contact no";
-    temp.assignDate = assignDate ? "" : "Please select assign date";
-    temp.status = status ? "" : "Please select status";
-    temp.managerStatus = managerStatus ? "" : "Please select manager status";
 
     setErrors(temp);
     return Object.values(temp).every((x) => x === "");
   };
 
   const handleSubmit = async () => {
+    // ✅ FIXED: call the function, not reference it
     if (!validateForm()) return;
-
     const body = {
       company_id: companyId,
       job_id: jobId,
@@ -89,7 +86,7 @@ export default function ManagerForm(){
       manager_status: managerStatus,
     };
 
-    const response = await postData("jobassign/insert_jobassign", body);
+    const response = await postData("manager/insert_manager", body);
     if (response.status) {
       Swal.fire({
         title: response.message,
@@ -120,7 +117,7 @@ export default function ManagerForm(){
       }}
     >
       <Typography variant="h6" gutterBottom>
-         Manager Form
+        Manager Form
       </Typography>
 
       <Grid container spacing={2}>
@@ -164,20 +161,19 @@ export default function ManagerForm(){
 
         {/* Manager Name */}
         <Grid item size={6}>
-<TextField
-  label="Manager Name"
-  fullWidth
-  value={managerName}
-  onChange={(e) => {
-    const value = e.target.value;
-    if (/^[a-zA-Z\s]*$/.test(value)) {
-      setManagerName(value);
-    }
-  }}
-  error={!!errors.managerName}
-  helperText={errors.managerName}
-/>
-
+          <TextField
+            label="Manager Name"
+            fullWidth
+            value={managerName}
+            onChange={(e) => {
+              const value = e.target.value;
+              if (/^[a-zA-Z\s]*$/.test(value)) {
+                setManagerName(value);
+              }
+            }}
+            error={!!errors.managerName}
+            helperText={errors.managerName}
+          />
         </Grid>
 
         {/* Email ID */}
@@ -221,15 +217,11 @@ export default function ManagerForm(){
 
         {/* Assign Date */}
 
-
         {/* Status */}
-
 
         {/* Remove Date */}
 
-
         {/* Manager Status */}
-       
 
         {/* Submit Button */}
         <Grid item xs={12}>
@@ -246,6 +238,4 @@ export default function ManagerForm(){
       </Grid>
     </Box>
   );
-};
-
-
+}
