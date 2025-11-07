@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams } from 'react-router-dom';
-import { postData } from '../../backendservices/FetchNodeServices';
+import { getData, postData } from '../../backendservices/FetchNodeServices';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
@@ -10,6 +10,8 @@ export default function Payslip() {
     const payslipRef = useRef();
     const [payslipData, setPayslipData] = useState([])
     const [countData, setCountData] = useState([])
+    const [publicHolidays, setPublicHolidays] = useState(0);
+    const [empHolidays, setEmpHolidays] = useState(0);
     const [balanceLeave, setBalanceLeave] = useState({ EL: 0, SL: 0 });
     const totalLeave = 20
     const takenLeave = parseInt(countData[0]?.PL) + parseInt(countData[0]?.SL) + parseFloat(countData[0]?.SHL) + parseFloat(countData[0]?.HD)
@@ -27,16 +29,57 @@ export default function Payslip() {
     const monthName = prevMonth.toLocaleString("default", { month: "short" });
     const currentMonthYear = `${monthName} - ${year}`;
 
-
     const fetchPayslipData = async () => {
         const res = await postData('payslip/payslip_data_by_id', { payslipId: params.payslipid })
         setPayslipData(res.data)
     }
 
+    const fetchPubLicHolidays = async () => {
+        const res = await getData('holiday/fetch_public_holidays')
+        const count = getPreviousMonthHolidaysCount(res.data);
+        setPublicHolidays(count)
+    }
+
+    const fetchEmpHolidays = async () => {
+        const res = await postData('leave/emp_holiday', { employeeId: payslipData[0].employee_id })
+        const count = calculateLeaveCounts(res.data);
+        console.log(count)
+        setEmpHolidays(count)
+    }
+
+    const getPreviousMonthHolidaysCount = (holidaysData) => {
+        const now = new Date();
+        const prevMonth = now.getMonth() - 1 < 0 ? 11 : now.getMonth() - 1;
+        const year = prevMonth === 11 ? now.getFullYear() - 1 : now.getFullYear();
+
+        let totalDays = 0;
+
+        holidaysData.forEach((holiday) => {
+            let from = new Date(holiday.date_from);
+            let to = new Date(holiday.date_to);
+
+            // ✅ Fix swapped dates
+            if (from > to) {
+                const temp = from;
+                from = to;
+                to = temp;
+            }
+
+            for (let d = new Date(from); d <= to; d.setUTCDate(d.getUTCDate() + 1)) {
+                const month = d.getUTCMonth();
+                const yr = d.getUTCFullYear();
+                if (month === prevMonth && yr === year) {
+                    totalDays++;
+                }
+            }
+        });
+
+        return totalDays;
+    };
+
     const fetchCount = async () => {
         const res = await postData('leave/pl_count', { employeeId: payslipData[0].employee_id });
         setCountData(res.data);
-        console.log('ress', res.data);
 
         // 🧮 Calculate balance with assumed total entitlements
         const totalPL = 12; // total allowed PL in a year
@@ -50,59 +93,53 @@ export default function Payslip() {
         });
     };
 
-    const [publicHolidays, setPublicHolidays] = useState(0);
-    const apiKey = "NBQ1xlgig8ptgfT0DzevkFlFTcT5wPH8";
-    const country = "IN";
+    const calculateLeaveCounts = (data) => {
+        const now = new Date();
+        const prevMonthIndex = now.getMonth() === 0 ? 11 : now.getMonth() - 1; // previous month
+        const prevYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
 
-    // 🆕 Function to fetch holidays
-    const fetchPublicHolidays = async () => {
-        const cacheKey = `holidays_${year}_${month}`;
+        let hdCount = 0;
+        let slCount = 0;
+        let shortLeaveCount = 0;
 
-        // 🧹 Step 1: Clean up old cached months
-        Object.keys(localStorage).forEach((key) => {
-            if (key.startsWith("holidays_") && key !== cacheKey) {
-                localStorage.removeItem(key);
-                console.log("🧹 Removed old cache:", key);
+        data.forEach((item) => {
+            let fromDate = new Date(item.date_from);
+            let toDate = item.date_to ? new Date(item.date_to) : fromDate;
+
+            // Fix swapped dates
+            if (fromDate > toDate) {
+                const temp = fromDate;
+                fromDate = toDate;
+                toDate = temp;
+            }
+
+            // Only consider leaves starting in previous month
+            if (fromDate.getMonth() !== prevMonthIndex || fromDate.getFullYear() !== prevYear) return;
+
+            const diffDays = ((toDate - fromDate) / (1000 * 60 * 60 * 24)) + 1;
+
+            switch ((item.leave_type || "").toUpperCase()) {
+                case "HD":
+                    hdCount += 0.5;
+                    break;
+                case "SL":
+                    slCount += diffDays;
+                    break;
+                case "SHORT_LEAVE":
+                    shortLeaveCount += 0.25;
+                    break;
+                default:
+                    break;
             }
         });
 
-        // 🧠 Step 2: Check cache for this month
-        const cached = localStorage.getItem(cacheKey);
-        if (cached) {
-            const parsed = JSON.parse(cached);
-            setPublicHolidays(parsed.length);
-            console.log("✅ Using cached holiday data for", cacheKey);
-            return;
-        }
+        const effectiveLeave = slCount; // only SL considered effective
+        const total = hdCount + slCount + shortLeaveCount;
 
-        // 🌐 Step 3: Fetch new data if not cached
-        try {
-            const res = await fetch(
-                `https://calendarific.com/api/v2/holidays?api_key=${apiKey}&country=${country}&year=${year}`
-            );
-            const json = await res.json();
-            const data = json?.response?.holidays || [];
-
-            const filtered = data.filter((h) => {
-                const hDate = new Date(h.date.iso);
-                return (
-                    hDate.getMonth() + 1 === month &&
-                    (h.locations === "All" || h.locations.includes("Madhya Pradesh"))
-                );
-            });
-
-            // 💾 Step 4: Save result for this month
-            localStorage.setItem(cacheKey, JSON.stringify(filtered));
-
-            setPublicHolidays(filtered.length);
-            console.log("🌐 Fetched and cached new holiday data for", cacheKey);
-        } catch (err) {
-            console.error("❌ Error fetching holidays:", err);
-            setPublicHolidays(0);
-        }
+        return { hdCount, slCount, shortLeaveCount, effectiveLeave, total };
     };
 
-    // ✅ Corrected version with proper spacing
+
     const numberToWords = (num) => {
         if (!num || isNaN(num)) return "";
         const a = [
@@ -144,15 +181,15 @@ export default function Payslip() {
 
     useEffect(() => {
         fetchPayslipData();
-        fetchPublicHolidays();
+        fetchPubLicHolidays()
     }, []);
 
     useEffect(() => {
         if (payslipData.length > 0 && payslipData[0].employee_id) {
             fetchCount();
+            fetchEmpHolidays();
         }
     }, [payslipData]);
-
 
     const netPay =
         parseInt(payslipData[0]?.hra || 0) +
@@ -237,20 +274,18 @@ export default function Payslip() {
                                     new Date(new Date().getFullYear(), new Date().getMonth(), i + 1)
                                 ).filter(d => d.getDay() === 0).length
                             } / {publicHolidays.toFixed(2)}</td>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>LWP/Absent</td>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000' }}>0.00 / 0.00</td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Total Leave</td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{totalLeave}</td>
                         </tr>
                         <tr>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>PL</td>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{countData[0]?.PL || 0}</td>
+                            <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>LWP/Absent</td>
+                            <td style={{ padding: '5px 8px', border: '1px solid #000' }}>0.00 / 0.00</td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Sick / Casual Leave</td>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{countData[0]?.SL || 0}</td>
+                            <td style={{ padding: '5px 8px', border: '1px solid #000' }}>
+                                {`SL: ${(empHolidays.slCount || 0)}, HD: ${(empHolidays.hdCount || 0)}, Short: ${(empHolidays.shortLeaveCount || 0)}, Total: ${(empHolidays.total || 0)}`}
+                            </td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Short Leave / Half day</td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{countData[0]?.SHL || 0} / {countData[0]?.HD || 0}</td>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}></td>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000' }}></td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Leave Taken</td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{takenLeave || 0}</td>
                         </tr>
@@ -259,8 +294,6 @@ export default function Payslip() {
                             <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{balanceLeave?.PL?.toFixed(2)}</td>
                             <td colSpan={2} style={{ padding: '5px 0px 5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Bal. Half Day / Sick / Casual / Short Leave</td>
                             <td colSpan={2} style={{ padding: '5px 8px', border: '1px solid #000' }}>{(totalLeave - countData[0]?.HD - countData[0]?.SHL - countData[0]?.SL)?.toFixed(2)}</td>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}></td>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000' }}></td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Bal. Leave</td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{totalLeave - takenLeave || 0}</td>
                         </tr>

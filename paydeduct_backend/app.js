@@ -13,6 +13,7 @@ var companyRouter = require('./routes/companys')
 var jobdescriptionRouter = require('./routes/jobdescription')
 var jobassignRouter = require('./routes/jobassign')
 var managerRouter = require('./routes/manager')
+var holidayRouter = require('./routes/holiday')
 
 var app = express();
 
@@ -35,6 +36,7 @@ app.use('/companys', companyRouter);
 app.use('/jobdescription', jobdescriptionRouter);
 app.use('/jobassign', jobassignRouter);
 app.use('/manager', managerRouter);
+app.use('/holiday', holidayRouter);
 
 // catch 404 and forward to error handler
 app.use(function (req, res, next) {
