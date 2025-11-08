@@ -71,7 +71,7 @@ export default function ManagerForm() {
   };
 
   const handleSubmit = async () => {
-      
+
     if (!validateForm()) return;
     const body = {
       company_id: companyId,
@@ -215,15 +215,7 @@ export default function ManagerForm() {
           />
         </Grid>
 
-        {/* Assign Date */}
 
-        {/* Status */}
-
-        {/* Remove Date */}
-
-        {/* Manager Status */}
-
-        {/* Submit Button */}
         <Grid item xs={12}>
           <Button
             variant="contained"
