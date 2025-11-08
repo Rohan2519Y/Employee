@@ -294,7 +294,9 @@ export default function Payslip() {
                         </tr>
                         <tr>
                             <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>LWP/Absent</td>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000' }}>0.00 / 0.00</td>
+                            <td style={{ padding: '5px 8px', border: '1px solid #000' }}>0.00 / {(new Date(new Date().getFullYear(), new Date().getMonth(), 0).getDate().toFixed(2)) - getPrevMonthPresentDays(empAttendence) - (Array.from({ length: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate() }, (_, i) =>
+                                new Date(new Date().getFullYear(), new Date().getMonth(), i + 1)
+                            ).filter(d => d.getDay() === 0).length) - publicHolidays.toFixed(2)}</td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>This Month Sick / Casual Leave</td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{totalSL || 0}</td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>This Short Leave / Half day</td>
@@ -303,7 +305,7 @@ export default function Payslip() {
                             <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{((parseFloat(countData[0]?.HD) || 0) + (parseFloat(countData[0]?.SHL) || 0) + (parseFloat(totalSL) || 0)).toFixed(2)}</td>
                         </tr>
                         <tr>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Bal. PL</td>
+                            <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Bal. LWP</td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000' }}>0</td>
                             <td colSpan={2} style={{ padding: '5px 0px 5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Bal. Half Day / Sick / Casual / Short Leave</td>
                             <td colSpan={2} style={{ padding: '5px 8px', border: '1px solid #000' }}>{(totalLeave - ((parseFloat(countData[0]?.HD) || 0) + (parseFloat(countData[0]?.SHL) || 0) + (parseFloat(totalSL) || 0))).toFixed(2)}</td>
