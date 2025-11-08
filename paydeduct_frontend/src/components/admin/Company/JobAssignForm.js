@@ -102,7 +102,7 @@ const JobAssignForm = () => {
                 icon: "success",
                 timer: 1500,
             });
-            navigate("/jobassign/display");
+            navigate("/displayjobassign");
         } else {
             Swal.fire({
                 title: response.message,

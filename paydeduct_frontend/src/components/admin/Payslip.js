@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { getData, postData } from '../../backendservices/FetchNodeServices';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import axios, { Axios } from 'axios';
 
 export default function Payslip() {
 
@@ -11,10 +12,8 @@ export default function Payslip() {
     const [payslipData, setPayslipData] = useState([])
     const [countData, setCountData] = useState([])
     const [publicHolidays, setPublicHolidays] = useState(0);
-    const [empHolidays, setEmpHolidays] = useState(0);
+    const [empAttendence, setEmpAttendence] = useState([]);
     const [balanceLeave, setBalanceLeave] = useState({ EL: 0, SL: 0 });
-    const totalLeave = 20
-    const takenLeave = parseInt(countData[0]?.PL) + parseInt(countData[0]?.SL) + parseFloat(countData[0]?.SHL) + parseFloat(countData[0]?.HD)
 
     const formatCurrency = (amount) => {
         const num = parseFloat(amount);
@@ -39,13 +38,48 @@ export default function Payslip() {
         const count = getPreviousMonthHolidaysCount(res.data);
         setPublicHolidays(count)
     }
-
+    const [leave, setLeave] = useState([])
     const fetchEmpHolidays = async () => {
         const res = await postData('leave/emp_holiday', { employeeId: payslipData[0].employee_id })
-        const count = calculateLeaveCounts(res.data);
-        console.log(count)
-        setEmpHolidays(count)
+        setLeave(res.data)
+        getPreviousMonthData(res.data)
     }
+
+    function getPreviousMonthData(leaves) {
+        const now = new Date();
+        const currentMonth = now.getMonth();
+        const currentYear = now.getFullYear();
+
+        // Compute previous month and year
+        let previousMonth = currentMonth - 1;
+        let yearOfPrevMonth = currentYear;
+        if (previousMonth < 0) {
+            previousMonth = 11;
+            yearOfPrevMonth = currentYear - 1;
+        }
+
+        // Filter data where start_date or end_date is in the previous month
+        const filtered = leaves.filter((leave) => {
+            const startDate = new Date(leave.start_date);
+            const month = startDate.getMonth();
+            const year = startDate.getFullYear();
+
+            return month === previousMonth && year === yearOfPrevMonth;
+        });
+        return filtered;
+    }
+
+    const monthlyShortLeave = getPreviousMonthData(leave)
+        .filter((l) => l.type_of_leave === "SHORT_LEAVE")
+        .reduce((sum, l) => sum + (parseFloat(l.value) || 0), 0);
+
+    const monthlyHalfDay = getPreviousMonthData(leave)
+        .filter((l) => l.type_of_leave === "HD")
+        .reduce((sum, l) => sum + (parseFloat(l.value) || 0), 0);
+
+    const totalSL = getPreviousMonthData(leave)
+        .filter(l => l.type_of_leave === "SL")
+        .reduce((a, b) => a + (parseFloat(b.value) || ((new Date(b.end_date) - new Date(b.start_date)) / (1000 * 60 * 60 * 24) + 1)), 0);
 
     const getPreviousMonthHolidaysCount = (holidaysData) => {
         const now = new Date();
@@ -80,65 +114,46 @@ export default function Payslip() {
     const fetchCount = async () => {
         const res = await postData('leave/pl_count', { employeeId: payslipData[0].employee_id });
         setCountData(res.data);
-
-        // 🧮 Calculate balance with assumed total entitlements
-        const totalPL = 12; // total allowed PL in a year
-        const totalSL = 8;  // total allowed SL in a year
-        const usedPL = res.data[0]?.PL || 0;
+        const totalSL = 20;
         const usedSL = res.data[0]?.SL || 0;
 
         setBalanceLeave({
-            PL: totalPL - usedPL,
             SL: totalSL - usedSL
         });
     };
 
-    const calculateLeaveCounts = (data) => {
-        const now = new Date();
-        const prevMonthIndex = now.getMonth() === 0 ? 11 : now.getMonth() - 1; // previous month
-        const prevYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+    const fetchEmpAttendance = async () => {
+        const res = await axios.get(`https://campusshala.com:3022/employeeLoginDetail/19`)
+        setEmpAttendence(res.data.data)
+    }
 
-        let hdCount = 0;
-        let slCount = 0;
-        let shortLeaveCount = 0;
+    useEffect(() => {
+        fetchEmpAttendance()
+    }, [])
 
-        data.forEach((item) => {
-            let fromDate = new Date(item.date_from);
-            let toDate = item.date_to ? new Date(item.date_to) : fromDate;
+    const getPrevMonthPresentDays = (attendance, referenceDate = new Date()) => {
+        // Determine previous month and year
+        let month = referenceDate.getMonth() - 1;
+        let year = referenceDate.getFullYear();
+        if (month < 0) {
+            month = 11;
+            year -= 1;
+        }
 
-            // Fix swapped dates
-            if (fromDate > toDate) {
-                const temp = fromDate;
-                fromDate = toDate;
-                toDate = temp;
-            }
-
-            // Only consider leaves starting in previous month
-            if (fromDate.getMonth() !== prevMonthIndex || fromDate.getFullYear() !== prevYear) return;
-
-            const diffDays = ((toDate - fromDate) / (1000 * 60 * 60 * 24)) + 1;
-
-            switch ((item.leave_type || "").toUpperCase()) {
-                case "HD":
-                    hdCount += 0.5;
-                    break;
-                case "SL":
-                    slCount += diffDays;
-                    break;
-                case "SHORT_LEAVE":
-                    shortLeaveCount += 0.25;
-                    break;
-                default:
-                    break;
-            }
+        // Filter records from previous month
+        const filtered = attendance.filter((record) => {
+            const date = new Date(record.checkin_date);
+            return date.getMonth() === month && date.getFullYear() === year;
         });
 
-        const effectiveLeave = slCount; // only SL considered effective
-        const total = hdCount + slCount + shortLeaveCount;
+        // Get unique days (avoid counting multiple check-ins in one day)
+        const uniqueDays = new Set(filtered.map((r) => new Date(r.checkin_date).getDate()));
 
-        return { hdCount, slCount, shortLeaveCount, effectiveLeave, total };
+        return uniqueDays.size;
     };
 
+    const totalLeave = 20
+    const takenLeave = parseInt(countData[0]?.SL) + parseFloat(countData[0]?.SHL) + parseFloat(countData[0]?.HD)
 
     const numberToWords = (num) => {
         if (!num || isNaN(num)) return "";
@@ -267,7 +282,7 @@ export default function Payslip() {
                                 {(new Date(new Date().getFullYear(), new Date().getMonth(), 0).getDate().toFixed(2)) -
                                     (Array.from({ length: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate() }, (_, i) =>
                                         new Date(new Date().getFullYear(), new Date().getMonth(), i + 1)
-                                    ).filter(d => d.getDay() === 0).length) - (publicHolidays.toFixed(2))}</td>
+                                    ).filter(d => d.getDay() === 0).length) - (publicHolidays.toFixed(2)) - totalSL - monthlyShortLeave.toFixed(2) - monthlyHalfDay.toFixed(2) - ((new Date(new Date().getFullYear(), new Date().getMonth(), 0).getDate().toFixed(2)) - getPrevMonthPresentDays(empAttendence))}</td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>W.Off/Pd.Off</td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{
                                 Array.from({ length: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate() }, (_, i) =>
@@ -280,22 +295,20 @@ export default function Payslip() {
                         <tr>
                             <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>LWP/Absent</td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000' }}>0.00 / 0.00</td>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Sick / Casual Leave</td>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000' }}>
-                                {`SL: ${(empHolidays.slCount || 0)}, HD: ${(empHolidays.hdCount || 0)}, Short: ${(empHolidays.shortLeaveCount || 0)}, Total: ${(empHolidays.total || 0)}`}
-                            </td>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Short Leave / Half day</td>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{countData[0]?.SHL || 0} / {countData[0]?.HD || 0}</td>
+                            <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>This Month Sick / Casual Leave</td>
+                            <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{totalSL || 0}</td>
+                            <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>This Short Leave / Half day</td>
+                            <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{monthlyShortLeave.toFixed(2) || 0} / {monthlyHalfDay.toFixed(2) || 0}</td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Leave Taken</td>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{takenLeave || 0}</td>
+                            <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{((parseFloat(countData[0]?.HD) || 0) + (parseFloat(countData[0]?.SHL) || 0) + (parseFloat(totalSL) || 0)).toFixed(2)}</td>
                         </tr>
                         <tr>
                             <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Bal. PL</td>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{balanceLeave?.PL?.toFixed(2)}</td>
+                            <td style={{ padding: '5px 8px', border: '1px solid #000' }}>0</td>
                             <td colSpan={2} style={{ padding: '5px 0px 5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Bal. Half Day / Sick / Casual / Short Leave</td>
-                            <td colSpan={2} style={{ padding: '5px 8px', border: '1px solid #000' }}>{(totalLeave - countData[0]?.HD - countData[0]?.SHL - countData[0]?.SL)?.toFixed(2)}</td>
+                            <td colSpan={2} style={{ padding: '5px 8px', border: '1px solid #000' }}>{(totalLeave - ((parseFloat(countData[0]?.HD) || 0) + (parseFloat(countData[0]?.SHL) || 0) + (parseFloat(totalSL) || 0))).toFixed(2)}</td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Bal. Leave</td>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{totalLeave - takenLeave || 0}</td>
+                            <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{(totalLeave - ((parseFloat(countData[0]?.HD) || 0) + (parseFloat(countData[0]?.SHL) || 0) + (parseFloat(totalSL) || 0))).toFixed(2)}</td>
                         </tr>
                     </tbody>
                 </table>

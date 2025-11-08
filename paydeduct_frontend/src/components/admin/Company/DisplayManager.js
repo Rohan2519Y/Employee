@@ -307,12 +307,12 @@ const showManager=()=>{
             <MaterialTable
                 title="List of Manager"
                 columns={[
-                    { title: "company_id", field: "companyname" },
-                    { title: "job_des", field: "job_title" },
-                    { title: "managername", field: "managername" },
-                    { title: "emailid", field: "emailid" },
-                    { title: "mobileno", field: "mobileno" },
-                    { title: "oth_contact_no", field: "oth_contact_no" },
+                    { title: "Company Name", field: "companyname" },
+                    { title: "Job", field: "job_title" },
+                    { title: "Managername", field: "managername" },
+                    { title: "Emailid", field: "emailid" },
+                    { title: "Mobileno", field: "mobileno" },
+                    { title: "Other contact", field: "oth_contact_no" },
 
                     
                 ]}

@@ -71,7 +71,7 @@ export default function ManagerForm() {
   };
 
   const handleSubmit = async () => {
-    // ✅ FIXED: call the function, not reference it
+      
     if (!validateForm()) return;
     const body = {
       company_id: companyId,
@@ -93,7 +93,7 @@ export default function ManagerForm() {
         icon: "success",
         timer: 1500,
       });
-      navigate("/jobassign/display");
+    
     } else {
       Swal.fire({
         title: response.message,
