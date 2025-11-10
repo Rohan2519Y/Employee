@@ -23,16 +23,15 @@ const DisplayAllJobAssign = () => {
     const [jobAssignList, setJobAssignList] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    // Dropdown data for editing
     const [companyList, setCompanyList] = useState([]);
     const [jobList, setJobList] = useState([]);
     const [employeeList, setEmployeeList] = useState([]);
 
-    // Dialog states
+
     const [openDialog, setOpenDialog] = useState(false);
     const [editData, setEditData] = useState({});
 
-    // Fetch job assignments
+
     const fetchAllJobAssign = async () => {
         setLoading(true);
         const res = await getData("jobassign/fetch_jobassign");
@@ -71,7 +70,6 @@ const DisplayAllJobAssign = () => {
         fetchAllEmployee();
     }, []);
 
-    // Edit
     const handleEdit = (rowData) => {
         setEditData(rowData);
         fetchAllJobs(rowData.company_id);
@@ -88,7 +86,6 @@ const DisplayAllJobAssign = () => {
         }
     };
 
-    // Update
     const handleUpdate = async () => {
         const res = await postData("jobassign/edit_jobassign", editData);
         if (res.status) {
