@@ -19,7 +19,7 @@ router.post('/pl_count', function (req, res, next) {
                 res.status(201).json({ status: false, message: 'Database Error,Pls Contact Backend Team' })
             }
             else {
-                res.status(200).json({ status: true, message: 'Services Successfully Submitted..', data: result })
+                res.status(200).json({ status: true, message: 'Data Fetched', data: result })
             }
         })
     }
@@ -28,4 +28,20 @@ router.post('/pl_count', function (req, res, next) {
     }
 });
 
+router.post('/emp_holiday', function (req, res, next) {
+    try {
+        pool.query('Select * from emp_leave where employee_id=?', [req.body.employeeId], function (error, result) {
+            if (error) {
+                console.log(error)
+                res.status(201).json({ status: false, message: 'Database Error,Pls Contact Backend Team' })
+            }
+            else {
+                res.status(200).json({ status: true, message: 'Data Fetched', data: result })
+            }
+        })
+    }
+    catch (e) {
+        res.status(202).json({ status: false, message: 'Critical Error, Pls Contact Server Administrator' })
+    }
+})
 module.exports = router

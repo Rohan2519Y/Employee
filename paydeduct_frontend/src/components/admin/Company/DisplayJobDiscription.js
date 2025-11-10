@@ -320,12 +320,12 @@ export default function DisplayJobDiscription() {
             <MaterialTable
                 title="List of JobDescription"
                 columns={[
-                    { title: "job_title", field: "job_title" },
-                    { title: "exp_min", field: "exp_min" },
-                    { title: "exp_max", field: "exp_max" },
-                    { title: "job_location", field: "job_location" },
-                    { title: "lpa", field: "lpa" },
-                    { title: "job_des", field: "job_des" },
+                    { title: "Job Title", field: "job_title" },
+                    { title: "Experience  Min", field: "exp_min" },
+                    { title: "Experience  Max", field: "exp_max" },
+                    { title: "Job location", field: "job_location" },
+                    { title: "LPA", field: "lpa" },
+                    { title: "Job Discription", field: "job_des" },
                 ]}
                 data={JobdescriptionList}
                 actions={[

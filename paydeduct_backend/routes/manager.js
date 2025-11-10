@@ -4,7 +4,8 @@ var pool = require('./pool');
 
 router.post('/insert_manager', function (req, res, next) {
     try {
-        pool.query("insert into managers (company_id, job_id, managername, emailid, mobileno, oth_contact_no) values(?,?,?,?,?,?)", [req.body.company_id, req.body.job_id, req.body.managername, req.body.emailid, req.body.mobileno, req.body.oth_contact_no], function (error, result) {
+        console.log(req.body)
+        pool.query("insert into managers (company_id, job_id, managername, emailid, mobileno, oth_contact_no) values(?,?,?,?,?,?)", [req.body.company_id, req.body.job_id, req.body.manager_name, req.body.email_id, req.body.mobile_no, req.body.oth_contact_no], function (error, result) {
             if (error) {
                 console.log(error)
                 res.status(201).json({ status: false, message: 'Database Error,Pls Contact Backend Team' })
@@ -21,7 +22,7 @@ router.post('/insert_manager', function (req, res, next) {
 
 router.get('/fetch_mangers', function (req, res, next) {
     try {
-        pool.query('select C.*,JD.*,M.* from company C,job_description JD,managers M where C.company_id=JD.company_id and C.company_id=JD.company_id', function (error, result) {
+        pool.query('select C.*,JD.*,M.* from company C,job_description JD,managers M where C.company_id=JD.company_id and C.company_id=M.company_id', function (error, result) {
             if (error) {
                 console.log(error)
                 res.status(200).json({ status: false, message: 'Database Error,Pls Contact Backend Team' })
@@ -54,8 +55,9 @@ router.post('/fetch_jobdescription_by_id', function (req, res, next) {
 })
 
 router.post('/edit_manager', function (req, res, next) {
-    try {
-        pool.query("update managers set company_id=?, job_id=?, managername=?, emailid=?, mobileno=?, oth_contact_no=? where manager_id=?", [req.body.company_id, req.body.job_id, req.body.managername, req.body.emailid, req.body.mobileno, req.body.oth_contact_no, req.body.manager_id], function (error, result) {
+    try { console.log("body",req.body);
+    
+        pool.query("update managers set company_id=?, job_id=?, managername=?, emailid=?, mobileno=?, oth_contact_no=? where manager_id=?", [req.body.company_id, req.body.job_id, req.body.manager_name, req.body.email_id, req.body.mobile_no, req.body.oth_contact_no, req.body.manager_id], function (error, result) {
             if (error) {
                 console.log(error)
                 res.status(201).json({ status: false, message: 'Database Error,Pls Contact Backend Team' })
