@@ -13,7 +13,7 @@ export default function Payslip() {
     const [publicHolidays, setPublicHolidays] = useState(0);
     const [empAttendence, setEmpAttendence] = useState([]);
     const [leave, setLeave] = useState([]);
-    const [totalLeave, setTotalLeave] = useState(20); // Default to 20, will be calculated
+    const [totalLeave, setTotalLeave] = useState(20);
 
     // Reusable date calculations
     const currentDate = new Date();
@@ -178,6 +178,7 @@ export default function Payslip() {
     const fetchPayslipData = async () => {
         const res = await postData('payslip/payslip_data_by_id', { payslipId: params.payslipid });
         setPayslipData(res.data);
+        console.log(res.data)
     };
 
     const fetchPubLicHolidays = async () => {
@@ -197,7 +198,7 @@ export default function Payslip() {
     };
 
     const fetchEmpAttendance = async () => {
-        const res = await axios.get(`https://campusshala.com:3022/employeeLoginDetail/19`);
+        const res = await axios.get(`https://campusshala.com:3022/employeeLoginDetail/${payslipData[0].employee_id}`);
         setEmpAttendence(res.data.data);
     };
 
@@ -222,6 +223,23 @@ export default function Payslip() {
             .reduce((a, b) => a + (parseFloat(b.value) || ((new Date(b.end_date) - new Date(b.start_date)) / (1000 * 60 * 60 * 24) + 1)), 0),
         [monthlyLeaveData]);
 
+    const calculateDeductions = useMemo(() => {
+        const deductions = {};
+
+        payslipData.forEach(item => {
+            const type = item?.type_of_deduction?.toLowerCase();
+            const amount = parseFloat(item?.deduction_amt) || 0;
+
+            if (deductions[type]) {
+                deductions[type] += amount;
+            } else {
+                deductions[type] = amount;
+            }
+        });
+
+        return deductions;
+    }, [payslipData])
+
     // Original formulas preserved
     const presentDays = getPrevMonthPresentDays(empAttendence);
 
@@ -238,12 +256,13 @@ export default function Payslip() {
 
     const balanceLeave = totalLeave - leaveTaken;
     const totalLwp = balanceLeave <= 0 ? balanceLeave - (balanceLeave * 2) : 0
-    
+    const lwpAmt = totalLwp * (payslipData[0]?.basic_salary / prevMonthTotalDays)
     const earningsTotal = parseInt(payslipData[0]?.hra || 0) +
         parseInt(payslipData[0]?.da || 0) +
         parseInt(payslipData[0]?.basic_salary || 0);
 
-    const netPay = earningsTotal - parseInt(payslipData[0]?.deduction_amt || 0);
+    const totalDeductions = Object.values(calculateDeductions).reduce((sum, amount) => sum + amount, 0) + lwpAmt;
+    const netPay = earningsTotal - totalDeductions
 
     const downloadPDF = async () => {
         const element = payslipRef.current;
@@ -257,19 +276,17 @@ export default function Payslip() {
         window.open(pdfBlobUrl, "_blank");
     };
 
-    // Effects
     useEffect(() => {
         fetchPayslipData();
         fetchPubLicHolidays();
-        fetchEmpAttendance();
     }, []);
+
 
     useEffect(() => {
         if (payslipData.length > 0 && payslipData[0].employee_id) {
             fetchCount();
             fetchEmpHolidays();
-
-            // Calculate total leaves based on joining date
+            fetchEmpAttendance();
             if (payslipData[0]?.anniversary) {
                 const calculatedLeaves = calculateLeavesForPreviousMonth(payslipData[0].anniversary);
                 setTotalLeave(calculatedLeaves);
@@ -352,8 +369,8 @@ export default function Payslip() {
                         <tr>
                             <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Bal. LWP</td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000' }}>0</td>
-                            <td colSpan={2} style={{ padding: '5px 0px 5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Bal. Half Day / Sick / Casual / Short Leave</td>
-                            <td colSpan={2} style={{ padding: '5px 8px', border: '1px solid #000' }}>{balanceLeave <= 0 ? 0 : balanceLeave.toFixed(2)}</td>
+                            <td colSpan={2} style={{ padding: '5px 0px 5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}></td>
+                            <td colSpan={2} style={{ padding: '5px 8px', border: '1px solid #000' }}></td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Bal. Leave</td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{balanceLeave <= 0 ? 0 : balanceLeave.toFixed(2)}</td>
                         </tr>
@@ -406,19 +423,56 @@ export default function Payslip() {
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr>
-                                    <td style={{ padding: '6px 8px', border: '1px solid #000' }}>{payslipData[0]?.type_of_deduction}</td>
-                                    <td style={{ padding: '6px 8px', border: '1px solid #000', textAlign: 'right' }}>{formatCurrency(payslipData[0]?.deduction_amt)}</td>
-                                </tr>
-                                {[...Array(3)].map((_, index) => (
-                                    <tr key={index}>
-                                        <td style={{ padding: '6px 8px', border: '1px solid #000' }}>&nbsp;</td>
-                                        <td style={{ padding: '6px 8px', border: '1px solid #000', textAlign: 'right' }}>&nbsp;</td>
-                                    </tr>
-                                ))}
+                                {(() => {
+                                    // Get all deduction types from calculateDeductions object
+                                    const availableDeductions = Object.entries(calculateDeductions)
+                                        .filter(([type, amount]) => amount > 0)
+                                        .map(([type, amount]) => ({
+                                            type: type,
+                                            name: type.charAt(0).toUpperCase() + type.slice(1),
+                                            amount: amount
+                                        }));
+
+                                    // Always show 4 rows for deductions + 1 row for LWP
+                                    const rows = [];
+
+                                    // Add available deductions first
+                                    availableDeductions.forEach((deduction, index) => {
+                                        if (index < 4) {
+                                            rows.push(
+                                                <tr key={deduction.type}>
+                                                    <td style={{ padding: '6px 8px', border: '1px solid #000' }}>{deduction.name}</td>
+                                                    <td style={{ padding: '6px 8px', border: '1px solid #000', textAlign: 'right' }}>
+                                                        {formatCurrency(deduction.amount)}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        }
+                                    });
+
+                                    // Add LWP row
+                                    rows.push(
+                                        <tr key="lwp">
+                                            <td style={{ padding: '6px 8px', border: '1px solid #000' }}>Leave Without Pay</td>
+                                            <td style={{ padding: '6px 8px', border: '1px solid #000', textAlign: 'right' }}>{lwpAmt.toFixed(2)}</td>
+                                        </tr>
+                                    );
+                                    // Fill remaining rows with empty cells
+                                    for (let i = availableDeductions.length; i < 3; i++) {
+                                        rows.push(
+                                            <tr key={`empty-${i}`}>
+                                                <td style={{ padding: '6px 8px', border: '1px solid #000' }}>&nbsp;</td>
+                                                <td style={{ padding: '6px 8px', border: '1px solid #000', textAlign: 'right' }}>&nbsp;</td>
+                                            </tr>
+                                        );
+                                    }
+
+
+                                    return rows;
+                                })()}
                                 <tr>
                                     <td style={{ padding: '8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Amount Total :</td>
-                                    <td style={{ padding: '8px', border: '1px solid #000', textAlign: 'right', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>{formatCurrency(payslipData[0]?.deduction_amt)}</td>
+                                    <td style={{ padding: '8px', border: '1px solid #000', textAlign: 'right', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>{formatCurrency(totalDeductions)}</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -427,8 +481,8 @@ export default function Payslip() {
 
                 {/* Net Pay */}
                 <div style={{ marginBottom: '20px', fontSize: '13px', padding: '10px 0', borderTop: '1px solid #000', borderBottom: '1px solid #000' }}>
-                    <div style={{ fontWeight: 'bold', marginBottom: '5px' }}>Net Pay : {formatCurrency(netPay)}</div>
-                    <div style={{ fontWeight: 'bold' }}>Net Pay : {numberToWords(netPay)}</div>
+                    <div style={{ fontWeight: 'bold', marginBottom: '5px' }}>Net Pay Amount : {formatCurrency(netPay)}</div>
+                    <div style={{ fontWeight: 'bold' }}>Net Pay in Words : {numberToWords(netPay)}</div>
                 </div>
 
                 {/* Footer */}

@@ -55,8 +55,7 @@ router.post('/fetch_jobdescription_by_id', function (req, res, next) {
 })
 
 router.post('/edit_manager', function (req, res, next) {
-    try { console.log("body",req.body);
-    
+    try {
         pool.query("update managers set company_id=?, job_id=?, managername=?, emailid=?, mobileno=?, oth_contact_no=? where manager_id=?", [req.body.company_id, req.body.job_id, req.body.manager_name, req.body.email_id, req.body.mobile_no, req.body.oth_contact_no, req.body.manager_id], function (error, result) {
             if (error) {
                 console.log(error)
