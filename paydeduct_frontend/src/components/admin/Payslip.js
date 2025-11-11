@@ -36,7 +36,7 @@ export default function Payslip() {
 
     // Function to calculate total leaves based on joining date
     const calculateTotalLeaves = (joiningDate, currentYear = new Date().getFullYear()) => {
-        if (!joiningDate) return 20; // Default if no joining date
+        if (!joiningDate) return 18; // Default if no joining date
 
         const joinDate = new Date(joiningDate);
         const joinYear = joinDate.getFullYear();
@@ -44,20 +44,20 @@ export default function Payslip() {
 
         // If joined in previous years, full 20 leaves
         if (joinYear < currentYear) {
-            return 20;
+            return 18;
         }
 
         // If joined in current year, calculate pro-rated leaves
         if (joinYear === currentYear) {
             const monthsWorked = 12 - joinMonth; // Months from joining month to December
-            const leavesPerMonth = 20 / 12; // ~1.666 leaves per month
+            const leavesPerMonth = 18 / 12; // ~1.666 leaves per month
             const calculatedLeaves = Math.round(monthsWorked * leavesPerMonth);
 
             // Ensure minimum 1 leave and maximum 20
-            return Math.min(20, Math.max(1, calculatedLeaves));
+            return Math.min(18, Math.max(1, calculatedLeaves));
         }
 
-        return 20; // Default fallback
+        return 18; // Default fallback
     };
 
     // Function to calculate leaves for the previous month's year
@@ -367,8 +367,8 @@ export default function Payslip() {
                             <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{leaveTaken.toFixed(2)}</td>
                         </tr>
                         <tr>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Bal. LWP</td>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000' }}>0</td>
+                            <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}></td>
+                            <td style={{ padding: '5px 8px', border: '1px solid #000' }}></td>
                             <td colSpan={2} style={{ padding: '5px 0px 5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}></td>
                             <td colSpan={2} style={{ padding: '5px 8px', border: '1px solid #000' }}></td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Bal. Leave</td>

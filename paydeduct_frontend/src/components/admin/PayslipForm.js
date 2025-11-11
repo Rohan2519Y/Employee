@@ -25,40 +25,88 @@ const PayslipForm = () => {
     const fetchAllPaySlip = async () => {
         const res = await postData("payslip/employee_data_by_id", { employeeId });
         setPaySlipData(res?.data || []);
+        console.log(res.data);
     };
-
 
     useEffect(() => {
         fetchAllEmployee();
     }, []);
 
-    useEffect(() => {
-        fetchAllPaySlip();
-    }, [employeeId]);
+    const getPreviousMonthFirstDate = () => {
+        const today = new Date();
+        let prevMonth = today.getMonth() - 1;
+        let year = today.getFullYear();
+        if (prevMonth < 0) {
+            prevMonth = 11;
+            year -= 1;
+        }
+        const newDate = new Date(year, prevMonth, 1);
+        const yyyy = newDate.getFullYear();
+        const mm = String(newDate.getMonth() + 1).padStart(2, "0");
+        const dd = String(newDate.getDate()).padStart(2, "0");
+        return `${yyyy}-${mm}-${dd}`;
+    };
 
-    // Auto calculate DA and HRA (10% each) when Basic Salary changes
-    const handleBasicSalaryChange = (e) => {
-        const value = e.target.value;
-        setBasicSalary(value);
-
-        if (value && !isNaN(value)) {
-            const salary = parseFloat(value);
-            setDa((salary * 0.1).toFixed(2));
-            setHra((salary * 0.1).toFixed(2));
+    const calculateAllowances = (salary) => {
+        if (salary && !isNaN(salary)) {
+            const salaryValue = parseFloat(salary);
+            setDa((salaryValue * 0.1).toFixed(2));
+            setHra((salaryValue * 0.1).toFixed(2));
         } else {
             setDa("");
             setHra("");
         }
     };
 
+    const handleBasicSalaryChange = (e) => {
+        const value = e.target.value;
+        setBasicSalary(value);
+        calculateAllowances(value);
+    };
+
+    useEffect(() => {
+        if (employeeId) {
+            const employee = employeeData.find(item => item.employee_id == employeeId);
+            if (employee) {
+                setBasicSalary(employee.salary);
+                calculateAllowances(employee.salary);
+            }
+            fetchAllPaySlip();
+        }
+    }, [employeeId, employeeData]);
+
+    // ✅ NEW useEffect to update date after paySlipData is fetched
+    useEffect(() => {
+        if (!employeeId) return;
+
+        if (paySlipData.length > 0 && paySlipData[0].date_of_payslip) {
+            const fetchedDate = new Date(paySlipData[0].date_of_payslip);
+            const prevMonth = new Date();
+            prevMonth.setMonth(prevMonth.getMonth() - 1);
+
+            const updatedDate = new Date(
+                prevMonth.getFullYear(),
+                prevMonth.getMonth(),
+                fetchedDate.getDate()
+            );
+
+            const yyyy = updatedDate.getFullYear();
+            const mm = String(updatedDate.getMonth() + 1).padStart(2, "0");
+            const dd = String(updatedDate.getDate()).padStart(2, "0");
+            setDateOfPayslip(`${yyyy}-${mm}-${dd}`);
+        } else {
+            setDateOfPayslip(getPreviousMonthFirstDate());
+        }
+    }, [paySlipData, employeeId]);
+    // ✅ END of new addition
+
     const [currentTime, setCurrentTime] = useState(new Date());
 
     useEffect(() => {
         const timer = setInterval(() => {
             setCurrentTime(new Date());
-        }, 1000); // update every second
-
-        return () => clearInterval(timer); // cleanup on unmount
+        }, 1000);
+        return () => clearInterval(timer);
     }, []);
 
     const formattedDate = currentTime.toLocaleDateString();
@@ -129,9 +177,10 @@ const PayslipForm = () => {
                     </Typography>
                 </div>
                 <div style={{ marginTop: 15 }}>
-                    <FormatListBulletedIcon style={{ fontSize: 40, cursor: 'pointer' }} onClick={()=>navigate('/payslipdisplay')} />
+                    <FormatListBulletedIcon style={{ fontSize: 40, cursor: 'pointer' }} onClick={() => navigate('/payslipdisplay')} />
                 </div>
             </div>
+
             {/* Employee ID Dropdown */}
             <TextField
                 select
@@ -139,14 +188,7 @@ const PayslipForm = () => {
                 fullWidth
                 margin="normal"
                 value={employeeId}
-                onChange={(e) => {
-                    const selectedId = e.target.value;
-                    setEmployeeId(selectedId);
-                    const selectedEmp = employeeData.find(
-                        (item) => item.employee_id === selectedId
-                    );
-                    if (selectedEmp) setDateOfPayslip(selectedEmp.date_of_payslip);
-                }}
+                onChange={(e) => setEmployeeId(e.target.value)}
                 error={!!errors.employeeId}
                 helperText={errors.employeeId}
             >
@@ -157,23 +199,18 @@ const PayslipForm = () => {
                 ))}
             </TextField>
 
-            {/* Date of Payslip Dropdown */}
+            {/* Date of Payslip */}
             <TextField
-                select
                 label="Date of Payslip"
+                type="date"
                 fullWidth
                 margin="normal"
                 value={dateOfPayslip}
                 onChange={(e) => setDateOfPayslip(e.target.value)}
                 error={!!errors.dateOfPayslip}
                 helperText={errors.dateOfPayslip}
-            >
-                {paySlipData.map((pay) => (
-                    <MenuItem key={pay.date_of_payslip} value={pay.date_of_payslip}>
-                        {pay.date_of_payslip}
-                    </MenuItem>
-                ))}
-            </TextField>
+                InputLabelProps={{ shrink: true }}
+            />
 
             {/* Salary Fields */}
             <TextField
