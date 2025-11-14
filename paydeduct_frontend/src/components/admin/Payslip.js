@@ -5,7 +5,7 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import axios from 'axios';
 
-export default function Payslip() {
+export default function Payslip({ user }) {
     const params = useParams();
     const payslipRef = useRef();
     const [payslipData, setPayslipData] = useState([]);
@@ -296,7 +296,7 @@ export default function Payslip() {
 
     return (
         <div style={{ padding: '20px', backgroundColor: '#f5f5f5', minHeight: '100vh' }}>
-            <div ref={payslipRef} style={{ maxWidth: '1000px', margin: '0 auto', backgroundColor: '#ffffff', border: '2px solid #000', padding: '30px', fontFamily: 'Arial, sans-serif' }}>
+            <div ref={payslipRef} style={{ maxWidth: '900px', margin: '0 auto', backgroundColor: '#ffffff', border: '2px solid #000', padding: '30px', fontFamily: 'Arial, sans-serif' }}>
 
                 {/* Header */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '15px', paddingBottom: '10px', borderBottom: '2px solid #000' }}>

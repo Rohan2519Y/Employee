@@ -12,6 +12,7 @@ import { AccountCircle, Visibility, VisibilityOff, Lock } from "@mui/icons-mater
 import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
 import { postData } from "../backendservices/FetchNodeServices";
+import axios from "axios";
 
 const LoginForm = () => {
 
@@ -24,9 +25,19 @@ const LoginForm = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const result = await postData("employee/chk_admin_login", { emailid: loginInput, password });
+    const body = {
+      phone: loginInput,
+      password: password,
+    };
 
-    if (result.status) {
+    const result = await axios.post(
+      "https://campusshala.com:3022/employee/login",
+      body
+    );
+
+    console.log("LOGIN RESPONSE:", result);
+
+    if (result.data.status == true) {   // <-- FIXED
       Swal.fire({
         icon: "success",
         title: "Login Successful",
@@ -34,19 +45,21 @@ const LoginForm = () => {
         showConfirmButton: false,
         toast: true,
       });
-      localStorage.setItem('admin', JSON.stringify(loginInput))
-      localStorage.setItem('empid', JSON.stringify(result.data[0].employee_id))
+
+      localStorage.setItem("admin", JSON.stringify({ loginInput, password }));
       navigate("/employeedashboard");
+
     } else {
       Swal.fire({
         icon: "error",
-        title: result.message || "Invalid Email/Mobile or Password",
+        title: result.data.message || "Invalid Email/Mobile or Password",
         showConfirmButton: false,
         timer: 2500,
         toast: true,
       });
     }
   };
+
 
   return (
     <Box
@@ -80,7 +93,7 @@ const LoginForm = () => {
           {/* Username */}
           <TextField
             fullWidth
-            label="Username"
+            label="Phone or Email"
             variant="outlined"
             margin="normal"
             value={loginInput}
