@@ -12,6 +12,8 @@ import JobAssignForm from './components/admin/Company/JobAssignForm';
 import DisplayAllJobAssign from './components/admin/Company/DisplayAllAssignJob';
 import ManagerForm from './components/admin/Company/Managers';
 import DisplayManager from './components/admin/Company/DisplayManager';
+import EmployeeDashboard from './Employee/EmployeeDashboard';
+import EmployeeLogin from './Employee/EmployeeLogin';
 function App() {
   return (
     <div>
@@ -21,6 +23,8 @@ function App() {
           <Route element={<PayslipDisplay />} path='/payslipdisplay' />
           <Route element={<Company />} path='/companyform' />
           <Route element={<ManagerForm />} path='/managerForm' />
+          <Route element={<EmployeeDashboard />} path='/employeedashboard' />
+          <Route element={<EmployeeLogin />} path='/employeelogin' />
           <Route element={<DisplayManager />} path='/displayManager' />
           <Route element={<DisplayCompany />} path='/displayCompany' />
           <Route element={<JobDescription />} path='/jobdescription' />

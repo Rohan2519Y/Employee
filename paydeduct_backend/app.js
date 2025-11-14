@@ -15,6 +15,7 @@ var jobdescriptionRouter = require('./routes/jobdescription')
 var jobassignRouter = require('./routes/jobassign')
 var managerRouter = require('./routes/manager')
 var holidayRouter = require('./routes/holiday')
+var employeeRouter = require('./routes/employee')
 
 var app = express();
 
@@ -37,6 +38,7 @@ app.use('/jobdescription', jobdescriptionRouter);
 app.use('/jobassign', jobassignRouter);
 app.use('/manager', managerRouter);
 app.use('/holiday', holidayRouter);
+app.use('/employee', employeeRouter);
 
 app.use(function (req, res, next) {
   next(createError(404));
@@ -44,11 +46,11 @@ app.use(function (req, res, next) {
 
 
 app.use(function (err, req, res, next) {
-  
+
   res.locals.message = err.message;
   res.locals.error = req.app.get('env') === 'development' ? err : {};
 
- 
+
   res.status(err.status || 500);
   res.render('error');
 });
