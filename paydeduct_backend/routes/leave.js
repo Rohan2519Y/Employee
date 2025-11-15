@@ -7,13 +7,14 @@ router.post('/pl_count', function (req, res, next) {
         pool.query(`SELECT 
                     E.employee_id,
                     SUM(CASE WHEN EL.type_of_leave = 'SL' THEN 1 ELSE 0 END) AS SL,
-                    SUM(CASE WHEN EL.type_of_leave = 'PL' THEN 1 ELSE 0 END) AS PL,
                     SUM(CASE WHEN EL.type_of_leave = 'SHORT_LEAVE' THEN EL.value ELSE 0 END) AS SHL,
-                    SUM(CASE WHEN EL.type_of_leave = 'HD' THEN EL.value ELSE 0 END) AS HD
+                    SUM(CASE WHEN EL.type_of_leave = 'HD' THEN EL.value ELSE 0 END) AS HD,
+                    EL.start_date,
+                    EL.end_date
                     FROM employees E
                     INNER JOIN emp_leave EL ON E.employee_id = EL.employee_id
                     WHERE E.employee_id = ?
-                    GROUP BY E.employee_id;`, [req.body.employeeId], function (error, result) {
+                    GROUP BY E.employee_id`, [req.body.employeeId], function (error, result) {
             if (error) {
                 console.log(error)
                 res.status(201).json({ status: false, message: 'Database Error,Pls Contact Backend Team' })

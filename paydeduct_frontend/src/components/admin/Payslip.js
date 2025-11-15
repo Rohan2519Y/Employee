@@ -250,13 +250,14 @@ export default function Payslip({ user }) {
     // Original LWP/Absent calculation
     const absentDays = prevMonthTotalDays - presentDays - prevMonthSundays - publicHolidays;
 
-    const leaveTaken = (parseFloat(countData[0]?.HD) || 0) +
+    const leaveTaken =
+        (parseFloat(countData[0]?.HD) || 0) +
         (parseFloat(countData[0]?.SHL) || 0) +
         (parseFloat(totalSL) || 0);
 
     const balanceLeave = totalLeave - leaveTaken;
     const totalLwp = balanceLeave <= 0 ? balanceLeave - (balanceLeave * 2) : 0
-    const lwpAmt = totalLwp * (payslipData[0]?.basic_salary / prevMonthTotalDays)
+    const lwpAmt = totalLwp * ((parseInt(payslipData[0]?.basic_salary) + parseInt(payslipData[0]?.da) + parseInt(payslipData[0]?.hra)) / prevMonthTotalDays)
     const earningsTotal = parseInt(payslipData[0]?.hra || 0) +
         parseInt(payslipData[0]?.da || 0) +
         parseInt(payslipData[0]?.basic_salary || 0);
@@ -361,7 +362,7 @@ export default function Payslip({ user }) {
                             <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{totalLwp.toFixed(2)} / {absentDays.toFixed(2)}</td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>This Month Sick / Casual Leave</td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{totalSL || 0}</td>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>This Short Leave / Half day</td>
+                            <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>This Month Short Leave / Half day</td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{monthlyShortLeave.toFixed(2) || 0} / {monthlyHalfDay.toFixed(2) || 0}</td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Leave Taken</td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{leaveTaken.toFixed(2)}</td>
