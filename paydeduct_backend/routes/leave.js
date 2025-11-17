@@ -6,28 +6,38 @@ router.post('/pl_count', function (req, res, next) {
     try {
         pool.query(`SELECT 
                     E.employee_id,
-                    SUM(CASE WHEN EL.type_of_leave = 'SL' THEN 1 ELSE 0 END) AS SL,
+                    
+                    /* SL calculation changed here */
+                    SUM(CASE WHEN EL.type_of_leave = 'SL' 
+                             THEN DATEDIFF(EL.end_date, EL.start_date) 
+                             ELSE 0 END) AS SL,
+
                     SUM(CASE WHEN EL.type_of_leave = 'SHORT_LEAVE' THEN EL.value ELSE 0 END) AS SHL,
                     SUM(CASE WHEN EL.type_of_leave = 'HD' THEN EL.value ELSE 0 END) AS HD,
                     EL.start_date,
                     EL.end_date
+                    
                     FROM employees E
                     INNER JOIN emp_leave EL ON E.employee_id = EL.employee_id
                     WHERE E.employee_id = ?
-                    GROUP BY E.employee_id`, [req.body.employeeId], function (error, result) {
-            if (error) {
-                console.log(error)
-                res.status(201).json({ status: false, message: 'Database Error,Pls Contact Backend Team' })
-            }
-            else {
-                res.status(200).json({ status: true, message: 'Data Fetched', data: result })
-            }
-        })
+                    GROUP BY E.employee_id`,
+            [req.body.employeeId],
+            function (error, result) {
+                if (error) {
+                    console.log(error)
+                    res.status(201).json({ status: false, message: 'Database Error,Pls Contact Backend Team' })
+                }
+                else {
+                    console.log(result)
+                    res.status(200).json({ status: true, message: 'Data Fetched', data: result })
+                }
+            })
     }
     catch (e) {
         res.status(202).json({ status: false, message: 'Critical Error,Pls Contact Server Administrator' })
     }
 });
+
 
 router.post('/emp_holiday', function (req, res, next) {
     try {

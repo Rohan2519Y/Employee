@@ -5,6 +5,21 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import axios from 'axios';
 
+if (process.env.NODE_ENV === 'development') {
+    const OriginalDate = global.Date;
+    global.Date = class extends Date {
+        constructor(...args) {
+            if (args.length === 0) {
+                return new OriginalDate('2025-12-15T00:00:00.000Z');
+            }
+            return new OriginalDate(...args);
+        }
+        static now() {
+            return new OriginalDate('2025-12-15T00:00:00.000Z').getTime();
+        }
+    };
+}
+
 export default function Payslip({ user }) {
     const params = useParams();
     const payslipRef = useRef();
@@ -119,22 +134,38 @@ export default function Payslip({ user }) {
         return totalDays;
     };
 
-    const getPrevMonthPresentDays = (attendance, referenceDate = new Date()) => {
-        let month = referenceDate.getMonth() - 1;
-        let year = referenceDate.getFullYear();
-        if (month < 0) {
-            month = 11;
-            year -= 1;
+    function getPrevMonthPresentDays(attendence) {
+        if (!attendence || attendence.length === 0) return 0;
+
+        // Get the first date from the data to determine the reference month
+        const firstDate = new Date(attendence[0].checkin_date);
+        const currentMonth = firstDate.getMonth();
+        const currentYear = firstDate.getFullYear();
+
+        // Calculate previous month
+        let previousMonth = currentMonth - 1;
+        let previousYear = currentYear;
+
+        if (previousMonth < 0) {
+            previousMonth = 11; // December
+            previousYear = currentYear - 1;
         }
 
-        const filtered = attendance.filter((record) => {
-            const date = new Date(record.checkin_date);
-            return date.getMonth() === month && date.getFullYear() === year;
+        // Count entries from previous month
+        let previousMonthCount = 0;
+
+        attendence.forEach(entry => {
+            const entryDate = new Date(entry.checkin_date);
+            const entryMonth = entryDate.getMonth();
+            const entryYear = entryDate.getFullYear();
+
+            if (entryMonth === previousMonth && entryYear === previousYear) {
+                previousMonthCount++;
+            }
         });
 
-        const uniqueDays = new Set(filtered.map((r) => new Date(r.checkin_date).getDate()));
-        return uniqueDays.size;
-    };
+        return previousMonthCount;
+    }
 
     const numberToWords = (num) => {
         if (!num || isNaN(num)) return "";
@@ -178,7 +209,6 @@ export default function Payslip({ user }) {
     const fetchPayslipData = async () => {
         const res = await postData('payslip/payslip_data_by_id', { payslipId: params.payslipid });
         setPayslipData(res.data);
-        console.log(res.data)
     };
 
     const fetchPubLicHolidays = async () => {
@@ -202,7 +232,6 @@ export default function Payslip({ user }) {
         setEmpAttendence(res.data.data);
     };
 
-    // Derived data - keeping original formulas
     const monthlyLeaveData = useMemo(() => getPreviousMonthData(leave), [leave]);
 
     const monthlyShortLeave = useMemo(() =>
@@ -217,11 +246,43 @@ export default function Payslip({ user }) {
             .reduce((sum, l) => sum + (parseFloat(l.value) || 0), 0),
         [monthlyLeaveData]);
 
-    const totalSL = useMemo(() =>
-        monthlyLeaveData
-            .filter(l => l.type_of_leave === "SL")
-            .reduce((a, b) => a + (parseFloat(b.value) || ((new Date(b.end_date) - new Date(b.start_date)) / (1000 * 60 * 60 * 24) + 1)), 0),
-        [monthlyLeaveData]);
+    const totalSL = useMemo(() => {
+        const now = new Date();
+        const currentMonth = now.getMonth();
+        const currentYear = now.getFullYear();
+
+        let previousMonth = currentMonth - 1;
+        let yearOfPrevMonth = currentYear;
+
+        if (previousMonth < 0) {
+            previousMonth = 11;
+            yearOfPrevMonth = currentYear - 1;
+        }
+
+        return monthlyLeaveData
+            .filter(leave => leave.type_of_leave === 'SL')
+            .reduce((total, leave) => {
+                const start = new Date(leave.start_date);
+                const end = new Date(leave.end_date);
+
+                // match only previous month
+                if (start.getMonth() !== previousMonth || start.getFullYear() !== yearOfPrevMonth) {
+                    return total;
+                }
+
+                // if value exists, use it
+                if (leave.value && !isNaN(parseFloat(leave.value))) {
+                    return total + parseFloat(leave.value);
+                }
+
+                // calculate days (exclusive)
+                const diffDays =
+                    Math.floor((end - start) / (1000 * 60 * 60 * 24));
+
+                return total + diffDays;
+            }, 0);
+
+    }, [monthlyLeaveData]);
 
     const calculateDeductions = useMemo(() => {
         const deductions = {};
@@ -242,27 +303,26 @@ export default function Payslip({ user }) {
 
     // Original formulas preserved
     const presentDays = getPrevMonthPresentDays(empAttendence);
-
     // Original Days Present calculation
-    const daysPresent = (prevMonthTotalDays - prevMonthSundays - publicHolidays) -
-        (prevMonthTotalDays - presentDays - prevMonthSundays - publicHolidays);
-
+    const daysPresent = ((prevMonthTotalDays - prevMonthSundays - publicHolidays) -
+        (prevMonthTotalDays - presentDays - prevMonthSundays - publicHolidays)) + parseFloat(new Date(payslipData[0]?.anniversary).getDate()) - 1
     // Original LWP/Absent calculation
-    const absentDays = prevMonthTotalDays - presentDays - prevMonthSundays - publicHolidays;
 
     const leaveTaken =
         (parseFloat(countData[0]?.HD) || 0) +
         (parseFloat(countData[0]?.SHL) || 0) +
-        (parseFloat(totalSL) || 0);
+        (parseFloat(countData[0]?.SL) || 0)
 
     const balanceLeave = totalLeave - leaveTaken;
-    const totalLwp = balanceLeave <= 0 ? balanceLeave - (balanceLeave * 2) : 0
+    const absentDays = prevMonthTotalDays - daysPresent - prevMonthSundays - publicHolidays - totalSL - monthlyHalfDay - monthlyShortLeave;
+    const totalLwp = (balanceLeave < 0 ? (leaveTaken - totalLeave) : 0)
     const lwpAmt = totalLwp * ((parseInt(payslipData[0]?.basic_salary) + parseInt(payslipData[0]?.da) + parseInt(payslipData[0]?.hra)) / prevMonthTotalDays)
+    const absentAmt = absentDays * ((parseInt(payslipData[0]?.basic_salary) + parseInt(payslipData[0]?.da) + parseInt(payslipData[0]?.hra)) / prevMonthTotalDays)
     const earningsTotal = parseInt(payslipData[0]?.hra || 0) +
         parseInt(payslipData[0]?.da || 0) +
         parseInt(payslipData[0]?.basic_salary || 0);
 
-    const totalDeductions = Object.values(calculateDeductions).reduce((sum, amount) => sum + amount, 0) + lwpAmt;
+    const totalDeductions = Object.values(calculateDeductions).reduce((sum, amount) => sum + amount, 0) + lwpAmt + absentAmt;
     const netPay = earningsTotal - totalDeductions
 
     const downloadPDF = async () => {
@@ -282,7 +342,6 @@ export default function Payslip({ user }) {
         fetchPubLicHolidays();
     }, []);
 
-
     useEffect(() => {
         if (payslipData.length > 0 && payslipData[0].employee_id) {
             fetchCount();
@@ -296,8 +355,8 @@ export default function Payslip({ user }) {
     }, [payslipData]);
 
     return (
-        <div style={{ padding: '20px', backgroundColor: '#f5f5f5', minHeight: '100vh' }}>
-            <div ref={payslipRef} style={{ maxWidth: '900px', margin: '0 auto', backgroundColor: '#ffffff', border: '2px solid #000', padding: '30px', fontFamily: 'Arial, sans-serif' }}>
+        <div style={{ paddingTop: '20px', backgroundColor: '#f5f5f5', minHeight: '90vh' }}>
+            <div ref={payslipRef} style={{ maxWidth: '90%', margin: '0 auto', backgroundColor: '#ffffff', border: '2px solid #000', padding: '30px', fontFamily: 'Arial, sans-serif' }}>
 
                 {/* Header */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '15px', paddingBottom: '10px', borderBottom: '2px solid #000' }}>
@@ -344,7 +403,7 @@ export default function Payslip({ user }) {
                 <table style={{ width: '100%', marginBottom: '15px', fontSize: '11px', borderCollapse: 'collapse', border: '1px solid #000' }}>
                     <tbody>
                         <tr>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Days Paid</td>
+                            <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Month Days</td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{prevMonthTotalDays.toFixed(2)}</td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Days Present</td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000' }}>
@@ -352,28 +411,28 @@ export default function Payslip({ user }) {
                             </td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>W.Off/Pd.Off</td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000' }}>
-                                {prevMonthSundays} / {publicHolidays.toFixed(2)}
+                                {prevMonthSundays.toFixed(2)} / {publicHolidays.toFixed(2)}
                             </td>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Total Leave</td>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{totalLeave}</td>
+                            <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Yearly Leave</td>
+                            <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{totalLeave.toFixed(2)}</td>
                         </tr>
                         <tr>
                             <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>LWP/Absent</td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{totalLwp.toFixed(2)} / {absentDays.toFixed(2)}</td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>This Month Sick / Casual Leave</td>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{totalSL || 0}</td>
+                            <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{totalSL.toFixed(2) || 0}</td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>This Month Short Leave / Half day</td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{monthlyShortLeave.toFixed(2) || 0} / {monthlyHalfDay.toFixed(2) || 0}</td>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Leave Taken</td>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{leaveTaken.toFixed(2)}</td>
+                            <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Yearly Leave Taken</td>
+                            <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{leaveTaken >= totalLeave ? totalLeave.toFixed(2) : leaveTaken.toFixed(2)}</td>
                         </tr>
                         <tr>
                             <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}></td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000' }}></td>
                             <td colSpan={2} style={{ padding: '5px 0px 5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}></td>
                             <td colSpan={2} style={{ padding: '5px 8px', border: '1px solid #000' }}></td>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Bal. Leave</td>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{balanceLeave <= 0 ? 0 : balanceLeave.toFixed(2)}</td>
+                            <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Yearly Bal. Leave</td>
+                            <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{balanceLeave < 0 ? 0.00 : balanceLeave.toFixed(2)}</td>
                         </tr>
                     </tbody>
                 </table>
@@ -401,6 +460,10 @@ export default function Payslip({ user }) {
                                 <tr>
                                     <td style={{ padding: '6px 8px', border: '1px solid #000' }}>Basic</td>
                                     <td style={{ padding: '6px 8px', border: '1px solid #000', textAlign: 'right' }}>{formatCurrency(payslipData[0]?.basic_salary)}</td>
+                                </tr>
+                                <tr>
+                                    <td style={{ padding: '6px 8px', border: '1px solid #000' }}>Incentive</td>
+                                    <td style={{ padding: '6px 8px', border: '1px solid #000', textAlign: 'right' }}>0.00</td>
                                 </tr>
                                 <tr>
                                     <td style={{ padding: '6px 8px', border: '1px solid #000' }}>C.C.A</td>
@@ -453,6 +516,12 @@ export default function Payslip({ user }) {
 
                                     // Add LWP row
                                     rows.push(
+                                        <tr key="absent">
+                                            <td style={{ padding: '6px 8px', border: '1px solid #000' }}>Absent</td>
+                                            <td style={{ padding: '6px 8px', border: '1px solid #000', textAlign: 'right' }}>{absentAmt.toFixed(2)}</td>
+                                        </tr>
+                                    );
+                                    rows.push(
                                         <tr key="lwp">
                                             <td style={{ padding: '6px 8px', border: '1px solid #000' }}>Leave Without Pay</td>
                                             <td style={{ padding: '6px 8px', border: '1px solid #000', textAlign: 'right' }}>{lwpAmt.toFixed(2)}</td>
@@ -497,12 +566,13 @@ export default function Payslip({ user }) {
                 style={{
                     backgroundColor: '#1976d2',
                     color: '#fff',
-                    padding: '10px 20px',
+                    padding: '10px 10px',
                     border: 'none',
                     borderRadius: '5px',
                     cursor: 'pointer',
                     marginTop: '20px',
-                    marginLeft: 1130
+                    marginLeft: 1050,
+                    width: '12%'
                 }}
             >
                 Download Payslip

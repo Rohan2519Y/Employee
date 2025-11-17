@@ -242,7 +242,7 @@ export default function Dashboard() {
                 <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1 }}>
                     {screen == 1 ? <Profile user={user} /> :
                         screen == 2 ? <EmployeeAttendance user={user} /> :
-                            screen == 4 ? <Payslip user={user} /> :
+                            screen == 4 ? <div style={{ width: '80vw' }}><Payslip user={user} /> </div> :
                                 screen == 5 ? <EmployeeAssign user={user} /> : ''
                     }
                 </div>

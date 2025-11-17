@@ -6,9 +6,11 @@ import {
     Box,
     Typography,
     CircularProgress,
+    Button,
 } from "@mui/material";
 import axios from "axios";
 import { postData } from "../backendservices/FetchNodeServices";
+import SendIcon from '@mui/icons-material/Send';
 
 const EmployeeAssign = ({ user }) => {
     const [empAssign, setEmpAssign] = useState([]);
@@ -20,7 +22,6 @@ const EmployeeAssign = ({ user }) => {
             const res = await postData('employee/fetch_emp_assign', { empid: user.employee_id })
             if (res.status && res?.data) {
                 setEmpAssign(res.data);
-                console.log(res.data)
             } else {
                 Swal.fire({
                     icon: "error",
@@ -58,7 +59,7 @@ const EmployeeAssign = ({ user }) => {
             }}
         >
             <Typography variant="h6" gutterBottom>
-                Employee Attendance Records
+                Employee Assign Records
             </Typography>
 
             {loading ? (
@@ -89,7 +90,11 @@ const EmployeeAssign = ({ user }) => {
                                     ? new Date(rowData.remove_date).toLocaleDateString()
                                     : "-"
                         },
-                        { title: "Manager Status", field: "manager_status" }
+                        { title: "Manager Status", field: "manager_status" },
+                        {
+                            title: "Share",
+                            render: () => <Button style={{ height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}><SendIcon style={{ cursor: 'pointer' }} /></Button>
+                        }
                     ]}
                     data={empAssign}
                     options={{
