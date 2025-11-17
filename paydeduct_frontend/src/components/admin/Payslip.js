@@ -10,12 +10,12 @@ if (process.env.NODE_ENV === 'development') {
     global.Date = class extends Date {
         constructor(...args) {
             if (args.length === 0) {
-                return new OriginalDate('2025-12-15T00:00:00.000Z');
+                return new OriginalDate('2025-09-15T00:00:00.000Z');
             }
             return new OriginalDate(...args);
         }
         static now() {
-            return new OriginalDate('2025-12-15T00:00:00.000Z').getTime();
+            return new OriginalDate('2025-09-15T00:00:00.000Z').getTime();
         }
     };
 }
@@ -28,7 +28,7 @@ export default function Payslip({ user }) {
     const [publicHolidays, setPublicHolidays] = useState(0);
     const [empAttendence, setEmpAttendence] = useState([]);
     const [leave, setLeave] = useState([]);
-    const [totalLeave, setTotalLeave] = useState(20);
+    const [totalLeave, setTotalLeave] = useState(18);
 
     // Reusable date calculations
     const currentDate = new Date();
@@ -50,30 +50,23 @@ export default function Payslip({ user }) {
         [prevMonthTotalDays]);
 
     // Function to calculate total leaves based on joining date
-    const calculateTotalLeaves = (joiningDate, currentYear = new Date().getFullYear()) => {
-        if (!joiningDate) return 18; // Default if no joining date
+    const calculateTotalLeaves = (joiningDate) => {
+        // If no joining date → give full 18 leaves
+        if (!joiningDate) return 18;
 
-        const joinDate = new Date(joiningDate);
-        const joinYear = joinDate.getFullYear();
-        const joinMonth = joinDate.getMonth(); // 0-11 (Jan-Dec)
+        const join = new Date(joiningDate);
+        const currentYear = new Date().getFullYear();
 
-        // If joined in previous years, full 20 leaves
-        if (joinYear < currentYear) {
-            return 18;
+        // Employee joined this year
+        if (join.getFullYear() === currentYear) {
+            const leaveMonths = 12 - (join.getMonth() + 1) + 1;
+            return (18 * leaveMonths) / 12;
         }
 
-        // If joined in current year, calculate pro-rated leaves
-        if (joinYear === currentYear) {
-            const monthsWorked = 12 - joinMonth; // Months from joining month to December
-            const leavesPerMonth = 18 / 12; // ~1.666 leaves per month
-            const calculatedLeaves = Math.round(monthsWorked * leavesPerMonth);
-
-            // Ensure minimum 1 leave and maximum 20
-            return Math.min(18, Math.max(1, calculatedLeaves));
-        }
-
-        return 18; // Default fallback
+        // Employee joined in a previous year → full 18
+        return 18;
     };
+
 
     // Function to calculate leaves for the previous month's year
     const calculateLeavesForPreviousMonth = (joiningDate) => {
@@ -133,39 +126,6 @@ export default function Payslip({ user }) {
 
         return totalDays;
     };
-
-    function getPrevMonthPresentDays(attendence) {
-        if (!attendence || attendence.length === 0) return 0;
-
-        // Get the first date from the data to determine the reference month
-        const firstDate = new Date(attendence[0].checkin_date);
-        const currentMonth = firstDate.getMonth();
-        const currentYear = firstDate.getFullYear();
-
-        // Calculate previous month
-        let previousMonth = currentMonth - 1;
-        let previousYear = currentYear;
-
-        if (previousMonth < 0) {
-            previousMonth = 11; // December
-            previousYear = currentYear - 1;
-        }
-
-        // Count entries from previous month
-        let previousMonthCount = 0;
-
-        attendence.forEach(entry => {
-            const entryDate = new Date(entry.checkin_date);
-            const entryMonth = entryDate.getMonth();
-            const entryYear = entryDate.getFullYear();
-
-            if (entryMonth === previousMonth && entryYear === previousYear) {
-                previousMonthCount++;
-            }
-        });
-
-        return previousMonthCount;
-    }
 
     const numberToWords = (num) => {
         if (!num || isNaN(num)) return "";
@@ -230,7 +190,57 @@ export default function Payslip({ user }) {
     const fetchEmpAttendance = async () => {
         const res = await axios.get(`https://campusshala.com:3022/employeeLoginDetail/${payslipData[0].employee_id}`);
         setEmpAttendence(res.data.data);
+        console.log(res.data.data)
     };
+
+    function getPreviousMonthAttendanceCount(attendanceList) {
+        if (!Array.isArray(attendanceList)) return 0;
+
+        // Today
+        const today = new Date();
+
+        // Previous month calculation
+        let prevMonth = today.getMonth() - 1;
+        let prevYear = today.getFullYear();
+
+        if (prevMonth < 0) {
+            prevMonth = 11;
+            prevYear -= 1;
+        }
+
+        // Helper attendance logic (fixed version of your function)
+        const calculateDayAttendance = (checkin, checkout) => {
+            if (!checkin || !checkout) return 0; // FIXED
+
+            const inTime = new Date(checkin);
+            const outTime = new Date(checkout);
+
+            const workedMs = outTime - inTime;
+            if (workedMs <= 0) return 0;
+
+            const workedHours = workedMs / (1000 * 60 * 60);
+            const day = inTime.getDay(); // 1–5 = Mon–Fri
+
+            if (day >= 1 && day <= 5) {
+                if (workedHours < 6) return 0.5; // half-day
+                return 1; // full-day
+            }
+
+            return 1; // Saturday/Sunday no half day rule
+        };
+
+        // Main calculation
+        return attendanceList.reduce((sum, item) => {
+            const d = new Date(item.checkin_date);
+
+            // Only previous month data
+            if (d.getMonth() === prevMonth && d.getFullYear() === prevYear) {
+                return sum + calculateDayAttendance(item.checkin_date, item.checkout_date);
+            }
+
+            return sum;
+        }, 0);
+    }
 
     const monthlyLeaveData = useMemo(() => getPreviousMonthData(leave), [leave]);
 
@@ -260,28 +270,29 @@ export default function Payslip({ user }) {
         }
 
         return monthlyLeaveData
-            .filter(leave => leave.type_of_leave === 'SL')
+            .filter(leave => leave.type_of_leave === "SL")
             .reduce((total, leave) => {
-                const start = new Date(leave.start_date);
-                const end = new Date(leave.end_date);
+                // Extract year and month directly from ISO string
+                const startYear = parseInt(leave.start_date.substring(0, 4));
+                const startMonth = parseInt(leave.start_date.substring(5, 7)) - 1; // 0-based month
 
-                // match only previous month
-                if (start.getMonth() !== previousMonth || start.getFullYear() !== yearOfPrevMonth) {
+                if (startMonth !== previousMonth || startYear !== yearOfPrevMonth) {
                     return total;
                 }
 
-                // if value exists, use it
+                // If value is given
                 if (leave.value && !isNaN(parseFloat(leave.value))) {
                     return total + parseFloat(leave.value);
                 }
 
-                // calculate days (exclusive)
-                const diffDays =
-                    Math.floor((end - start) / (1000 * 60 * 60 * 24));
+                // Calculate days
+                const start = new Date(leave.start_date.split('T')[0]);
+                const end = new Date(leave.end_date.split('T')[0]);
+                const diffDays = Math.floor((end - start) / (1000 * 60 * 60 * 24)) + 1;
 
                 return total + diffDays;
-            }, 0);
 
+            }, 0);
     }, [monthlyLeaveData]);
 
     const calculateDeductions = useMemo(() => {
@@ -302,7 +313,8 @@ export default function Payslip({ user }) {
     }, [payslipData])
 
     // Original formulas preserved
-    const presentDays = getPrevMonthPresentDays(empAttendence);
+    const presentDays = getPreviousMonthAttendanceCount(empAttendence);
+    console.log(presentDays)
     // Original Days Present calculation
     const daysPresent = ((prevMonthTotalDays - prevMonthSundays - publicHolidays) -
         (prevMonthTotalDays - presentDays - prevMonthSundays - publicHolidays)) + parseFloat(new Date(payslipData[0]?.anniversary).getDate()) - 1
@@ -314,7 +326,7 @@ export default function Payslip({ user }) {
         (parseFloat(countData[0]?.SL) || 0)
 
     const balanceLeave = totalLeave - leaveTaken;
-    const absentDays = prevMonthTotalDays - daysPresent - prevMonthSundays - publicHolidays - totalSL - monthlyHalfDay - monthlyShortLeave;
+    const absentDays = prevMonthTotalDays - presentDays - prevMonthSundays - publicHolidays - totalSL - monthlyHalfDay - monthlyShortLeave;
     const totalLwp = (balanceLeave < 0 ? (leaveTaken - totalLeave) : 0)
     const lwpAmt = totalLwp * ((parseInt(payslipData[0]?.basic_salary) + parseInt(payslipData[0]?.da) + parseInt(payslipData[0]?.hra)) / prevMonthTotalDays)
     const absentAmt = absentDays * ((parseInt(payslipData[0]?.basic_salary) + parseInt(payslipData[0]?.da) + parseInt(payslipData[0]?.hra)) / prevMonthTotalDays)
@@ -407,7 +419,7 @@ export default function Payslip({ user }) {
                             <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{prevMonthTotalDays.toFixed(2)}</td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Days Present</td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000' }}>
-                                {daysPresent.toFixed(2)}
+                                {presentDays.toFixed(2)}
                             </td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>W.Off/Pd.Off</td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000' }}>

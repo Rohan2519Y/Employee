@@ -4,16 +4,17 @@ var pool = require('./pool');
 var upload = require('./multer')
 
 router.post('/chk_admin_login', function (req, res, next) {
-    pool.query("select * from employees where (emailid=? or mobileno=?) and password=?", [req.body.emailid, req.body.emailid, req.body.password], function (error, result) {
+    console.log(req.body)
+    pool.query("select * from employees where (emailid=? or mobileno=?) and password=?", [req.body.phone, req.body.phone, req.body.password], function (error, result) {
         if (error) {
             console.log(error)
-            res.status(200).json({ status: false, message: 'Database Error,Pls Contact Backend Team' })
+            res.status(201).json({ status: false, message: 'Database Error,Pls Contact Backend Team' })
         }
         else {
             if (result.length == 1)
                 res.status(200).json({ status: true, message: 'Login Successful', data: result })
             else
-                res.status(200).json({ status: false, message: 'Invalid Emailid/Mobileno/Password' })
+                res.status(202).json({ status: false, message: 'Invalid Emailid/Mobileno/Password' })
         }
     })
 });

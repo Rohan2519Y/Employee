@@ -30,14 +30,11 @@ const LoginForm = () => {
       password: password,
     };
 
-    const result = await axios.post(
-      "https://campusshala.com:3022/employee/login",
-      body
-    );
+    const result = await postData("employee/chk_admin_login", body);
 
-    console.log("LOGIN RESPONSE:", result);
+    // console.log("LOGIN RESPONSE:", result);
 
-    if (result.data.status == true) {   // <-- FIXED
+    if (result.status == true) {   // <-- FIXED
       Swal.fire({
         icon: "success",
         title: "Login Successful",
