@@ -10,12 +10,12 @@ if (process.env.NODE_ENV === 'development') {
     global.Date = class extends Date {
         constructor(...args) {
             if (args.length === 0) {
-                return new OriginalDate('2025-09-15T00:00:00.000Z');
+                return new OriginalDate('2025-10-15T00:00:00.000Z');
             }
             return new OriginalDate(...args);
         }
         static now() {
-            return new OriginalDate('2025-09-15T00:00:00.000Z').getTime();
+            return new OriginalDate('2025-10-15T00:00:00.000Z').getTime();
         }
     };
 }
@@ -128,7 +128,7 @@ export default function Payslip({ user }) {
     };
 
     const numberToWords = (num) => {
-        if (!num || isNaN(num)) return "";
+        if (!num || isNaN(num) || num < 0) return "";
         const a = [
             "", "One", "Two", "Three", "Four", "Five", "Six",
             "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve",
@@ -190,7 +190,9 @@ export default function Payslip({ user }) {
     const fetchEmpAttendance = async () => {
         const res = await axios.get(`https://campusshala.com:3022/employeeLoginDetail/${payslipData[0].employee_id}`);
         setEmpAttendence(res.data.data);
-        console.log(res.data.data)
+        // const res = await postData('employee/fetch_empattendence_by_id', { empid: payslipData[0].employee_id })
+        // setEmpAttendence(res.data)
+        // console.log(res.data)
     };
 
     function getPreviousMonthAttendanceCount(attendanceList) {
@@ -272,26 +274,29 @@ export default function Payslip({ user }) {
         return monthlyLeaveData
             .filter(leave => leave.type_of_leave === "SL")
             .reduce((total, leave) => {
-                // Extract year and month directly from ISO string
-                const startYear = parseInt(leave.start_date.substring(0, 4));
-                const startMonth = parseInt(leave.start_date.substring(5, 7)) - 1; // 0-based month
-
-                if (startMonth !== previousMonth || startYear !== yearOfPrevMonth) {
+                // Skip if not in target month
+                const start = new Date(leave.start_date);
+                if (start.getMonth() !== previousMonth || start.getFullYear() !== yearOfPrevMonth) {
                     return total;
                 }
 
-                // If value is given
+                // If value is provided, use it
                 if (leave.value && !isNaN(parseFloat(leave.value))) {
                     return total + parseFloat(leave.value);
                 }
 
-                // Calculate days
-                const start = new Date(leave.start_date.split('T')[0]);
-                const end = new Date(leave.end_date.split('T')[0]);
-                const diffDays = Math.floor((end - start) / (1000 * 60 * 60 * 24)) + 1;
+                // Calculate inclusive days difference
+                const startDate = new Date(leave.start_date);
+                const endDate = new Date(leave.end_date);
+
+                // Set both to midnight to avoid time component issues
+                startDate.setHours(0, 0, 0, 0);
+                endDate.setHours(0, 0, 0, 0);
+
+                const timeDiff = endDate.getTime() - startDate.getTime();
+                const diffDays = Math.floor(timeDiff / (1000 * 60 * 60 * 24)) + 1;
 
                 return total + diffDays;
-
             }, 0);
     }, [monthlyLeaveData]);
 
@@ -315,24 +320,18 @@ export default function Payslip({ user }) {
     // Original formulas preserved
     const presentDays = getPreviousMonthAttendanceCount(empAttendence);
     console.log(presentDays)
-    // Original Days Present calculation
-    const daysPresent = ((prevMonthTotalDays - prevMonthSundays - publicHolidays) -
-        (prevMonthTotalDays - presentDays - prevMonthSundays - publicHolidays)) + parseFloat(new Date(payslipData[0]?.anniversary).getDate()) - 1
-    // Original LWP/Absent calculation
 
     const leaveTaken =
         (parseFloat(countData[0]?.HD) || 0) +
         (parseFloat(countData[0]?.SHL) || 0) +
         (parseFloat(countData[0]?.SL) || 0)
-
+    console.log(countData)
     const balanceLeave = totalLeave - leaveTaken;
     const absentDays = prevMonthTotalDays - presentDays - prevMonthSundays - publicHolidays - totalSL - monthlyHalfDay - monthlyShortLeave;
     const totalLwp = (balanceLeave < 0 ? (leaveTaken - totalLeave) : 0)
     const lwpAmt = totalLwp * ((parseInt(payslipData[0]?.basic_salary) + parseInt(payslipData[0]?.da) + parseInt(payslipData[0]?.hra)) / prevMonthTotalDays)
     const absentAmt = absentDays * ((parseInt(payslipData[0]?.basic_salary) + parseInt(payslipData[0]?.da) + parseInt(payslipData[0]?.hra)) / prevMonthTotalDays)
-    const earningsTotal = parseInt(payslipData[0]?.hra || 0) +
-        parseInt(payslipData[0]?.da || 0) +
-        parseInt(payslipData[0]?.basic_salary || 0);
+    const earningsTotal = payslipData[0]?.basic_salary || 0;
 
     const totalDeductions = Object.values(calculateDeductions).reduce((sum, amount) => sum + amount, 0) + lwpAmt + absentAmt;
     const netPay = earningsTotal - totalDeductions
@@ -471,7 +470,7 @@ export default function Payslip({ user }) {
                                 </tr>
                                 <tr>
                                     <td style={{ padding: '6px 8px', border: '1px solid #000' }}>Basic</td>
-                                    <td style={{ padding: '6px 8px', border: '1px solid #000', textAlign: 'right' }}>{formatCurrency(payslipData[0]?.basic_salary)}</td>
+                                    <td style={{ padding: '6px 8px', border: '1px solid #000', textAlign: 'right' }}>{formatCurrency(payslipData[0]?.basic_salary - payslipData[0]?.da - payslipData[0]?.da)}</td>
                                 </tr>
                                 <tr>
                                     <td style={{ padding: '6px 8px', border: '1px solid #000' }}>Incentive</td>
@@ -563,8 +562,8 @@ export default function Payslip({ user }) {
 
                 {/* Net Pay */}
                 <div style={{ marginBottom: '20px', fontSize: '13px', padding: '10px 0', borderTop: '1px solid #000', borderBottom: '1px solid #000' }}>
-                    <div style={{ fontWeight: 'bold', marginBottom: '5px' }}>Net Pay Amount : {formatCurrency(netPay)}</div>
-                    <div style={{ fontWeight: 'bold' }}>Net Pay in Words : {numberToWords(netPay)}</div>
+                    <div style={{ fontWeight: 'bold', marginBottom: '5px' }}>Net Pay Amount : {netPay < 0 ? 0 : formatCurrency(netPay)}</div>
+                    <div style={{ fontWeight: 'bold' }}>Net Pay in Words : {numberToWords(netPay) || `-`}</div>
                 </div>
 
                 {/* Footer */}

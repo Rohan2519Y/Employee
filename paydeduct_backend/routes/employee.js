@@ -4,7 +4,6 @@ var pool = require('./pool');
 var upload = require('./multer')
 
 router.post('/chk_admin_login', function (req, res, next) {
-    console.log(req.body)
     pool.query("select * from employees where (emailid=? or mobileno=?) and password=?", [req.body.phone, req.body.phone, req.body.password], function (error, result) {
         if (error) {
             console.log(error)
@@ -39,6 +38,23 @@ router.post('/fetch_empid', function (req, res, next) {
 router.post('/fetch_emp_by_id', function (req, res, next) {
     try {
         pool.query("select * from employees where employee_id=?", [req.body.empid], function (error, result) {
+            if (error) {
+                console.log(error)
+                res.status(201).json({ status: false, message: 'Database Error,Pls Contact Backend Team' })
+            }
+            else {
+                res.status(200).json({ status: true, message: 'Login Successful', data: result })
+            }
+        })
+    }
+    catch (e) {
+        res.status(202).json({ status: false, message: 'Critical Error' })
+    }
+});
+
+router.post('/fetch_empattendence_by_id', function (req, res, next) {
+    try {
+        pool.query("select * from emp_login_details where employee_id=?", [req.body.empid], function (error, result) {
             if (error) {
                 console.log(error)
                 res.status(201).json({ status: false, message: 'Database Error,Pls Contact Backend Team' })
