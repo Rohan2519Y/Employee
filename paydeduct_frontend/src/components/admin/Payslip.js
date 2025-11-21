@@ -10,12 +10,12 @@ if (process.env.NODE_ENV === 'development') {
     global.Date = class extends Date {
         constructor(...args) {
             if (args.length === 0) {
-                return new OriginalDate('2025-10-15T00:00:00.000Z');
+                return new OriginalDate('2025-11-15T00:00:00.000Z');
             }
             return new OriginalDate(...args);
         }
         static now() {
-            return new OriginalDate('2025-10-15T00:00:00.000Z').getTime();
+            return new OriginalDate('2025-11-15T00:00:00.000Z').getTime();
         }
     };
 }
@@ -319,21 +319,19 @@ export default function Payslip({ user }) {
 
     // Original formulas preserved
     const presentDays = getPreviousMonthAttendanceCount(empAttendence);
-    console.log(presentDays)
 
     const leaveTaken =
         (parseFloat(countData[0]?.HD) || 0) +
         (parseFloat(countData[0]?.SHL) || 0) +
-        (parseFloat(countData[0]?.SL) || 0)
-    console.log(countData)
+        (parseFloat(countData[0]?.SL) || 0) + (prevMonthTotalDays - presentDays - prevMonthSundays - publicHolidays - totalSL - monthlyHalfDay - monthlyShortLeave)
     const balanceLeave = totalLeave - leaveTaken;
     const absentDays = prevMonthTotalDays - presentDays - prevMonthSundays - publicHolidays - totalSL - monthlyHalfDay - monthlyShortLeave;
     const totalLwp = (balanceLeave < 0 ? (leaveTaken - totalLeave) : 0)
-    const lwpAmt = totalLwp * ((parseInt(payslipData[0]?.basic_salary) + parseInt(payslipData[0]?.da) + parseInt(payslipData[0]?.hra)) / prevMonthTotalDays)
+    const lwpAmt = totalLwp * ((parseInt(payslipData[0]?.basic_salary)) / prevMonthTotalDays)
     const absentAmt = absentDays * ((parseInt(payslipData[0]?.basic_salary) + parseInt(payslipData[0]?.da) + parseInt(payslipData[0]?.hra)) / prevMonthTotalDays)
     const earningsTotal = payslipData[0]?.basic_salary || 0;
 
-    const totalDeductions = Object.values(calculateDeductions).reduce((sum, amount) => sum + amount, 0) + lwpAmt + absentAmt;
+    const totalDeductions = Object.values(calculateDeductions).reduce((sum, amount) => sum + amount, 0) + lwpAmt;
     const netPay = earningsTotal - totalDeductions
 
     const downloadPDF = async () => {
@@ -428,8 +426,8 @@ export default function Payslip({ user }) {
                             <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{totalLeave.toFixed(2)}</td>
                         </tr>
                         <tr>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>LWP/Absent</td>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{totalLwp.toFixed(2)} / {absentDays.toFixed(2)}</td>
+                            <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Leave Without Pay</td>
+                            <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{totalLwp.toFixed(2)}</td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>This Month Sick / Casual Leave</td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{totalSL.toFixed(2) || 0}</td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>This Month Short Leave / Half day</td>
@@ -438,8 +436,8 @@ export default function Payslip({ user }) {
                             <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{leaveTaken >= totalLeave ? totalLeave.toFixed(2) : leaveTaken.toFixed(2)}</td>
                         </tr>
                         <tr>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}></td>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000' }}></td>
+                            <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Absent</td>
+                            <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{absentDays.toFixed(2)}</td>
                             <td colSpan={2} style={{ padding: '5px 0px 5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}></td>
                             <td colSpan={2} style={{ padding: '5px 8px', border: '1px solid #000' }}></td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Yearly Bal. Leave</td>
@@ -524,14 +522,6 @@ export default function Payslip({ user }) {
                                             );
                                         }
                                     });
-
-                                    // Add LWP row
-                                    rows.push(
-                                        <tr key="absent">
-                                            <td style={{ padding: '6px 8px', border: '1px solid #000' }}>Absent</td>
-                                            <td style={{ padding: '6px 8px', border: '1px solid #000', textAlign: 'right' }}>{absentAmt.toFixed(2)}</td>
-                                        </tr>
-                                    );
                                     rows.push(
                                         <tr key="lwp">
                                             <td style={{ padding: '6px 8px', border: '1px solid #000' }}>Leave Without Pay</td>
@@ -539,7 +529,7 @@ export default function Payslip({ user }) {
                                         </tr>
                                     );
                                     // Fill remaining rows with empty cells
-                                    for (let i = availableDeductions.length; i < 3; i++) {
+                                    for (let i = availableDeductions.length; i < 4; i++) {
                                         rows.push(
                                             <tr key={`empty-${i}`}>
                                                 <td style={{ padding: '6px 8px', border: '1px solid #000' }}>&nbsp;</td>

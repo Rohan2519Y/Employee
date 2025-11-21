@@ -1,3 +1,17 @@
+const OriginalDate = Date;
+global.Date = class extends OriginalDate {
+    constructor(...args) {
+        if (args.length === 0) {
+            // Mocked date
+            return new OriginalDate('2025-09-20T10:00:00Z');
+        }
+        return new OriginalDate(...args);
+    }
+    static now() {
+        return new OriginalDate('2025-09-20T10:00:00Z').getTime();
+    }
+};
+
 var express = require('express');
 var router = express.Router();
 var pool = require('./pool');
@@ -7,32 +21,31 @@ router.post('/pl_count', function (req, res, next) {
         const currentDate = new Date();
         const currentYear = currentDate.getFullYear();
         const currentMonth = currentDate.getMonth() + 1;
-        
-        // Simple date range - Jan to previous month
+        console.log(currentMonth, 'sekugf')
+
+        // Start date is ALWAYS from start of the year
         const startDate = `${currentYear}-01-01`;
-        const endDate = currentMonth > 1 ? 
-            `${currentYear}-${String(currentMonth - 1).padStart(2, '0')}-31` : 
-            `${currentYear - 1}-12-31`;
-        
+
+        // END DATE → last day of previous month (automatically correct)
+        const endDateObj = new Date(currentYear, currentMonth - 1, 0);
+        const endDate = endDateObj.toISOString().split('T')[0];
+
         console.log(`Employee: ${req.body.employeeId}, Date Range: ${startDate} to ${endDate}`);
-        
-        // First, let's check what data exists for this employee
+
         const debugQuery = `
             SELECT * FROM emp_leave 
             WHERE employee_id = ? 
             AND type_of_leave IN ('SL', 'SHORT_LEAVE', 'HD')
             ORDER BY start_date
         `;
-        
+
         pool.query(debugQuery, [req.body.employeeId], function (debugError, debugResult) {
             if (debugError) {
                 console.log('Debug Query Error:', debugError);
                 return res.status(500).json({ status: false, message: 'Debug Query Failed' });
             }
-            
-            console.log('All leaves for employee:', debugResult);
-            
-            // Now run the actual query
+
+            // Corrected date-range logic: check overlap
             const mainQuery = `
                 SELECT  
                     E.employee_id, 
@@ -46,37 +59,36 @@ router.post('/pl_count', function (req, res, next) {
                 FROM employees E 
                 INNER JOIN emp_leave EL ON E.employee_id = EL.employee_id 
                 WHERE E.employee_id = ? 
-                AND EL.start_date >= ? 
-                AND EL.start_date <= ?
+                AND EL.end_date >= ?         -- leave ends ON or AFTER startDate
+                AND EL.start_date <= ?        -- leave starts ON or BEFORE endDate
                 GROUP BY E.employee_id
             `;
-            
+
             pool.query(mainQuery, [req.body.employeeId, startDate, endDate], function (error, result) {
                 if (error) {
-                    console.log('Main Query Error:', error)
-                    res.status(500).json({ status: false, message: 'Database Error,Pls Contact Backend Team' })
-                }
-                else {
-                    console.log('Final Result:', result)
-                    res.status(200).json({ 
-                        status: true, 
-                        message: 'Data Fetched', 
+                    console.log('Main Query Error:', error);
+                    res.status(500).json({ status: false, message: 'Database Error,Pls Contact Backend Team' });
+                } else {
+                    console.log('Final Result:', result);
+                    res.status(200).json({
+                        status: true,
+                        message: 'Data Fetched',
                         data: result,
                         debug: {
                             dateRange: `${startDate} to ${endDate}`,
                             allLeaves: debugResult
                         }
-                    })
+                    });
                 }
             });
         });
-        
-    }
-    catch (e) {
+
+    } catch (e) {
         console.error('Critical Error:', e);
-        res.status(500).json({ status: false, message: 'Critical Error,Pls Contact Server Administrator' })
+        res.status(500).json({ status: false, message: 'Critical Error,Pls Contact Server Administrator' });
     }
 });
+
 
 
 router.post('/emp_holiday', function (req, res, next) {
