@@ -172,6 +172,15 @@ const DeductionForm = () => {
       >
         Submit
       </Button>
+      <Button
+        variant="outlined"
+        color="primary"
+        fullWidth
+        sx={{ mt: 2 }}
+        onClick={() => { navigate(`/payslip/${params.payid}`) }}
+      >
+        Skip
+      </Button>
     </Box>
   );
 };

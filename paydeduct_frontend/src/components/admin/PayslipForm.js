@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { TextField, Button, MenuItem, Box, Typography } from "@mui/material";
+import { TextField, Button, MenuItem, Box, Typography, Grid } from "@mui/material";
 import { getData, postData } from "../../backendservices/FetchNodeServices";
 import Swal from "sweetalert2";
 import { useNavigate } from "react-router-dom";
@@ -14,6 +14,7 @@ const PayslipForm = () => {
     const [da, setDa] = useState("");
     const [hra, setHra] = useState("");
     const [cca, setCca] = useState("Not-Applicable");
+    const [incentive, setIncentive] = useState("");
     const [errors, setErrors] = useState({});
     const navigate = useNavigate()
 
@@ -25,7 +26,7 @@ const PayslipForm = () => {
     const fetchAllPaySlip = async () => {
         const res = await postData("payslip/employee_data_by_id", { employeeId });
         setPaySlipData(res?.data || []);
-        console.log(res.data);
+        // console.log(res.data);
     };
 
     useEffect(() => {
@@ -135,6 +136,7 @@ const PayslipForm = () => {
             da,
             hra,
             cca,
+            incentive
         };
 
         const response = await postData("payslip/insert_payslip", body);
@@ -158,7 +160,7 @@ const PayslipForm = () => {
     return (
         <Box
             sx={{
-                maxWidth: 400,
+                maxWidth: 600,
                 mx: "auto",
                 mt: 5,
                 p: 3,
@@ -180,92 +182,114 @@ const PayslipForm = () => {
                     <FormatListBulletedIcon style={{ fontSize: 40, cursor: 'pointer' }} onClick={() => navigate('/payslipdisplay')} />
                 </div>
             </div>
+            <Grid container spacing={2}>
+                {/* Employee ID Dropdown */}
+                <Grid size={6}>
+                    <TextField
+                        select
+                        label="Employee ID"
+                        fullWidth
 
-            {/* Employee ID Dropdown */}
-            <TextField
-                select
-                label="Employee ID"
-                fullWidth
-                margin="normal"
-                value={employeeId}
-                onChange={(e) => setEmployeeId(e.target.value)}
-                error={!!errors.employeeId}
-                helperText={errors.employeeId}
-            >
-                {employeeData.map((emp) => (
-                    <MenuItem key={emp.employee_id} value={emp.employee_id}>
-                        {emp.name}
-                    </MenuItem>
-                ))}
-            </TextField>
+                        value={employeeId}
+                        onChange={(e) => setEmployeeId(e.target.value)}
+                        error={!!errors.employeeId}
+                        helperText={errors.employeeId}
+                    >
+                        {employeeData.map((emp) => (
+                            <MenuItem key={emp.employee_id} value={emp.employee_id}>
+                                {emp.name}
+                            </MenuItem>
+                        ))}
+                    </TextField>
+                </Grid>
 
-            {/* Date of Payslip */}
-            <TextField
-                label="Date of Payslip"
-                type="date"
-                fullWidth
-                margin="normal"
-                value={dateOfPayslip}
-                onChange={(e) => setDateOfPayslip(e.target.value)}
-                error={!!errors.dateOfPayslip}
-                helperText={errors.dateOfPayslip}
-                InputLabelProps={{ shrink: true }}
-            />
+                {/* Date of Payslip */}
+                <Grid size={6}>
+                    <TextField
+                        label="Date of Payslip"
+                        type="date"
+                        fullWidth
 
-            {/* Salary Fields */}
-            <TextField
-                label="Basic Salary"
-                type="number"
-                fullWidth
-                margin="normal"
-                value={basicSalary}
-                onChange={handleBasicSalaryChange}
-                error={!!errors.basicSalary}
-                helperText={errors.basicSalary}
-            />
+                        value={dateOfPayslip}
+                        onChange={(e) => setDateOfPayslip(e.target.value)}
+                        error={!!errors.dateOfPayslip}
+                        helperText={errors.dateOfPayslip}
+                        InputLabelProps={{ shrink: true }}
+                    />
+                </Grid>
 
-            <TextField
-                label="DA (10%)"
-                type="number"
-                fullWidth
-                margin="normal"
-                value={da}
-                onChange={(e) => setDa(e.target.value)}
-                error={!!errors.da}
-                helperText={errors.da}
-            />
+                {/* Salary Fields */}
+                <Grid size={6}>
+                    <TextField
+                        label="Basic Salary"
+                        type="number"
+                        fullWidth
 
-            <TextField
-                label="HRA (10%)"
-                type="number"
-                fullWidth
-                margin="normal"
-                value={hra}
-                onChange={(e) => setHra(e.target.value)}
-                error={!!errors.hra}
-                helperText={errors.hra}
-            />
+                        value={basicSalary}
+                        onChange={handleBasicSalaryChange}
+                        error={!!errors.basicSalary}
+                        helperText={errors.basicSalary}
+                    />
+                </Grid>
 
-            <TextField
-                label="CCA"
-                type="text"
-                fullWidth
-                margin="normal"
-                value={cca}
-                onChange={(e) => setCca(e.target.value)}
-                error={!!errors.cca}
-                helperText={errors.cca}
-            />
+                <Grid size={6}>
+                    <TextField
+                        label="DA (10%)"
+                        type="number"
+                        fullWidth
 
-            <Button
-                variant="contained"
-                color="primary"
-                fullWidth
-                sx={{ mt: 2 }}
-                onClick={handleSubmit}
-            >
-                Submit
-            </Button>
+                        value={da}
+                        onChange={(e) => setDa(e.target.value)}
+                        error={!!errors.da}
+                        helperText={errors.da}
+                    />
+                </Grid>
+
+                <Grid size={6}>
+                    <TextField
+                        label="HRA (10%)"
+                        type="number"
+                        fullWidth
+
+                        value={hra}
+                        onChange={(e) => setHra(e.target.value)}
+                        error={!!errors.hra}
+                        helperText={errors.hra}
+                    />
+                </Grid>
+
+                <Grid size={6}>
+                    <TextField
+                        label="Incentive"
+                        type="number"
+                        fullWidth
+                        value={incentive}
+                        onChange={(e) => setIncentive(e.target.value)}
+                    />
+                </Grid>
+
+                <Grid size={6}>
+                    <TextField
+                        label="CCA"
+                        type="text"
+                        fullWidth
+
+                        value={cca}
+                        onChange={(e) => setCca(e.target.value)}
+                        error={!!errors.cca}
+                        helperText={errors.cca}
+                    />
+                </Grid>
+                <Button
+                    variant="contained"
+                    color="primary"
+                    fullWidth
+                    sx={{ mt: 2 }}
+                    onClick={handleSubmit}
+                >
+                    Submit
+                </Button>
+            </Grid>
         </Box>
     );
 };

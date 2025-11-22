@@ -5,20 +5,20 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import axios from 'axios';
 
-if (process.env.NODE_ENV === 'development') {
-    const OriginalDate = global.Date;
-    global.Date = class extends Date {
-        constructor(...args) {
-            if (args.length === 0) {
-                return new OriginalDate('2025-11-15T00:00:00.000Z');
-            }
-            return new OriginalDate(...args);
-        }
-        static now() {
-            return new OriginalDate('2025-11-15T00:00:00.000Z').getTime();
-        }
-    };
-}
+// if (process.env.NODE_ENV === 'development') {
+//     const OriginalDate = global.Date;
+//     global.Date = class extends Date {
+//         constructor(...args) {
+//             if (args.length === 0) {
+//                 return new OriginalDate('2025-11-15T00:00:00.000Z');
+//             }
+//             return new OriginalDate(...args);
+//         }
+//         static now() {
+//             return new OriginalDate('2025-11-15T00:00:00.000Z').getTime();
+//         }
+//     };
+// }
 
 export default function Payslip({ user }) {
     const params = useParams();
@@ -319,6 +319,15 @@ export default function Payslip({ user }) {
 
     // Original formulas preserved
     const presentDays = getPreviousMonthAttendanceCount(empAttendence);
+    const calculateSundayLeaves = (presentDays) => {
+        let count = 0;
+        if (presentDays <= 7 && presentDays >= 0) {
+            count += 4;
+        } else if (presentDays <= 14 && presentDays >= 8) {
+            count += 3
+        }
+        return count;
+    }
 
     const leaveTaken =
         (parseFloat(countData[0]?.HD) || 0) +
@@ -326,10 +335,9 @@ export default function Payslip({ user }) {
         (parseFloat(countData[0]?.SL) || 0) + (prevMonthTotalDays - presentDays - prevMonthSundays - publicHolidays - totalSL - monthlyHalfDay - monthlyShortLeave)
     const balanceLeave = totalLeave - leaveTaken;
     const absentDays = prevMonthTotalDays - presentDays - prevMonthSundays - publicHolidays - totalSL - monthlyHalfDay - monthlyShortLeave;
-    const totalLwp = (balanceLeave < 0 ? (leaveTaken - totalLeave) : 0)
-    const lwpAmt = totalLwp * ((parseInt(payslipData[0]?.basic_salary)) / prevMonthTotalDays)
-    const absentAmt = absentDays * ((parseInt(payslipData[0]?.basic_salary) + parseInt(payslipData[0]?.da) + parseInt(payslipData[0]?.hra)) / prevMonthTotalDays)
-    const earningsTotal = payslipData[0]?.basic_salary || 0;
+    const totalLwp = (balanceLeave < 0 ? (leaveTaken - totalLeave + calculateSundayLeaves(presentDays)) : 0)
+    const lwpAmt = totalLwp * ((parseInt(payslipData[0]?.basic_salary) || 0) + (parseInt(payslipData[0]?.incentive) || 0)) / prevMonthTotalDays;
+    const earningsTotal = (parseInt(payslipData[0]?.basic_salary) + parseInt(payslipData[0]?.incentive)) || 0;
 
     const totalDeductions = Object.values(calculateDeductions).reduce((sum, amount) => sum + amount, 0) + lwpAmt;
     const netPay = earningsTotal - totalDeductions
@@ -472,7 +480,7 @@ export default function Payslip({ user }) {
                                 </tr>
                                 <tr>
                                     <td style={{ padding: '6px 8px', border: '1px solid #000' }}>Incentive</td>
-                                    <td style={{ padding: '6px 8px', border: '1px solid #000', textAlign: 'right' }}>0.00</td>
+                                    <td style={{ padding: '6px 8px', border: '1px solid #000', textAlign: 'right' }}>{formatCurrency(payslipData[0]?.incentive)}</td>
                                 </tr>
                                 <tr>
                                     <td style={{ padding: '6px 8px', border: '1px solid #000' }}>C.C.A</td>

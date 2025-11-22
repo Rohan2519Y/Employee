@@ -1,16 +1,16 @@
-const OriginalDate = Date;
-global.Date = class extends OriginalDate {
-    constructor(...args) {
-        if (args.length === 0) {
-            // Mocked date
-            return new OriginalDate('2025-09-20T10:00:00Z');
-        }
-        return new OriginalDate(...args);
-    }
-    static now() {
-        return new OriginalDate('2025-09-20T10:00:00Z').getTime();
-    }
-};
+// const OriginalDate = Date;
+// global.Date = class extends OriginalDate {
+//     constructor(...args) {
+//         if (args.length === 0) {
+//             // Mocked date
+//             return new OriginalDate('2025-09-20T10:00:00Z');
+//         }
+//         return new OriginalDate(...args);
+//     }
+//     static now() {
+//         return new OriginalDate('2025-09-20T10:00:00Z').getTime();
+//     }
+// };
 
 var express = require('express');
 var router = express.Router();
