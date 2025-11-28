@@ -10,12 +10,12 @@ import axios from 'axios';
 //     global.Date = class extends Date {
 //         constructor(...args) {
 //             if (args.length === 0) {
-//                 return new OriginalDate('2025-11-15T00:00:00.000Z');
+//                 return new OriginalDate('2025-10-15T00:00:00.000Z');
 //             }
 //             return new OriginalDate(...args);
 //         }
 //         static now() {
-//             return new OriginalDate('2025-11-15T00:00:00.000Z').getTime();
+//             return new OriginalDate('2025-10-15T00:00:00.000Z').getTime();
 //         }
 //     };
 // }
@@ -128,7 +128,15 @@ export default function Payslip({ user }) {
     };
 
     const numberToWords = (num) => {
-        if (!num || isNaN(num) || num < 0) return "";
+        if (num === 0) return "Zero Rupees Only";
+        if (isNaN(num)) return "";
+
+        let isNegative = false;
+        if (num < 0) {
+            isNegative = true;
+            num = Math.abs(num);
+        }
+
         const a = [
             "", "One", "Two", "Three", "Four", "Five", "Six",
             "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve",
@@ -147,8 +155,6 @@ export default function Payslip({ user }) {
             return "";
         };
 
-        if (num === 0) return "Zero Rupees Only";
-
         let str = "";
         const crore = Math.floor(num / 10000000);
         const lakh = Math.floor((num / 100000) % 100);
@@ -162,8 +168,11 @@ export default function Payslip({ user }) {
         if (hundred) str += a[hundred] + " Hundred ";
         if (rest) str += inWords(rest) + " ";
 
-        return str.trim() + " Rupees Only";
+        str = str.trim() + " Rupees Only";
+
+        return isNegative ? "Minus " + str : str;
     };
+
 
     // API calls
     const fetchPayslipData = async () => {
@@ -319,12 +328,12 @@ export default function Payslip({ user }) {
 
     // Original formulas preserved
     const presentDays = getPreviousMonthAttendanceCount(empAttendence);
-    const calculateSundayLeaves = (presentDays) => {
+    const calculateSundayLeaves = (pd = presentDays + (parseFloat(countData[0]?.HD) || 0) +
+        (parseFloat(countData[0]?.SHL) || 0) +
+        (parseFloat(countData[0]?.SL) || 0)) => {
         let count = 0;
-        if (presentDays <= 7 && presentDays >= 0) {
+        if (pd <= 15 && pd >= 0) {
             count += 4;
-        } else if (presentDays <= 14 && presentDays >= 8) {
-            count += 3
         }
         return count;
     }
@@ -335,12 +344,21 @@ export default function Payslip({ user }) {
         (parseFloat(countData[0]?.SL) || 0) + (prevMonthTotalDays - presentDays - prevMonthSundays - publicHolidays - totalSL - monthlyHalfDay - monthlyShortLeave)
     const balanceLeave = totalLeave - leaveTaken;
     const absentDays = prevMonthTotalDays - presentDays - prevMonthSundays - publicHolidays - totalSL - monthlyHalfDay - monthlyShortLeave;
-    const totalLwp = (balanceLeave < 0 ? (leaveTaken - totalLeave + calculateSundayLeaves(presentDays)) : 0)
+    let totalLwp
+    let calsun = calculateSundayLeaves(presentDays)
+    if (calsun == 4) {
+        totalLwp = prevMonthTotalDays - presentDays
+    }
+    else {
+        totalLwp = (balanceLeave < 0 ? (leaveTaken - totalLeave) : 0)
+    }
     const lwpAmt = totalLwp * ((parseInt(payslipData[0]?.basic_salary) || 0) + (parseInt(payslipData[0]?.incentive) || 0)) / prevMonthTotalDays;
-    const earningsTotal = (parseInt(payslipData[0]?.basic_salary) + parseInt(payslipData[0]?.incentive)) || 0;
+    const earningsTotal = (parseInt(payslipData[0]?.basic_salary || 0) + parseInt(payslipData[0]?.incentive || 0)) || 0;
 
     const totalDeductions = Object.values(calculateDeductions).reduce((sum, amount) => sum + amount, 0) + lwpAmt;
     const netPay = earningsTotal - totalDeductions
+
+    const thisMonthLeaves = parseFloat(totalSL.toFixed(2) || 0) + parseFloat(monthlyHalfDay.toFixed(2) || 0) + parseFloat(monthlyShortLeave.toFixed(2) || 0) + parseFloat(absentDays || 0)
 
     const downloadPDF = async () => {
         const element = payslipRef.current;
@@ -430,7 +448,7 @@ export default function Payslip({ user }) {
                             <td style={{ padding: '5px 8px', border: '1px solid #000' }}>
                                 {prevMonthSundays.toFixed(2)} / {publicHolidays.toFixed(2)}
                             </td>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Yearly Leave</td>
+                            <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Total Yearly Leave</td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{totalLeave.toFixed(2)}</td>
                         </tr>
                         <tr>
@@ -444,10 +462,12 @@ export default function Payslip({ user }) {
                             <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{leaveTaken >= totalLeave ? totalLeave.toFixed(2) : leaveTaken.toFixed(2)}</td>
                         </tr>
                         <tr>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Absent</td>
+                            <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>This Month Absent</td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{absentDays.toFixed(2)}</td>
-                            <td colSpan={2} style={{ padding: '5px 0px 5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}></td>
-                            <td colSpan={2} style={{ padding: '5px 8px', border: '1px solid #000' }}></td>
+                            <td style={{ padding: '5px 0px 5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>This Month Total Leaves</td>
+                            <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{thisMonthLeaves.toFixed(2)}</td>
+                            <td style={{ padding: '5px 0px 5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}></td>
+                            <td style={{ padding: '5px 8px', border: '1px solid #000' }}></td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Yearly Bal. Leave</td>
                             <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{balanceLeave < 0 ? 0.00 : balanceLeave.toFixed(2)}</td>
                         </tr>
@@ -467,16 +487,16 @@ export default function Payslip({ user }) {
                             </thead>
                             <tbody>
                                 <tr>
+                                    <td style={{ padding: '6px 8px', border: '1px solid #000' }}>Basic</td>
+                                    <td style={{ padding: '6px 8px', border: '1px solid #000', textAlign: 'right' }}>{formatCurrency(payslipData[0]?.basic_salary - payslipData[0]?.da - payslipData[0]?.da)}</td>
+                                </tr>
+                                <tr>
                                     <td style={{ padding: '6px 8px', border: '1px solid #000' }}>H.R.A</td>
                                     <td style={{ padding: '6px 8px', border: '1px solid #000', textAlign: 'right' }}>{formatCurrency(payslipData[0]?.hra)}</td>
                                 </tr>
                                 <tr>
                                     <td style={{ padding: '6px 8px', border: '1px solid #000' }}>D.A</td>
                                     <td style={{ padding: '6px 8px', border: '1px solid #000', textAlign: 'right' }}>{formatCurrency(payslipData[0]?.da)}</td>
-                                </tr>
-                                <tr>
-                                    <td style={{ padding: '6px 8px', border: '1px solid #000' }}>Basic</td>
-                                    <td style={{ padding: '6px 8px', border: '1px solid #000', textAlign: 'right' }}>{formatCurrency(payslipData[0]?.basic_salary - payslipData[0]?.da - payslipData[0]?.da)}</td>
                                 </tr>
                                 <tr>
                                     <td style={{ padding: '6px 8px', border: '1px solid #000' }}>Incentive</td>
@@ -524,7 +544,7 @@ export default function Payslip({ user }) {
                                                 <tr key={deduction.type}>
                                                     <td style={{ padding: '6px 8px', border: '1px solid #000' }}>{deduction.name}</td>
                                                     <td style={{ padding: '6px 8px', border: '1px solid #000', textAlign: 'right' }}>
-                                                        {formatCurrency(deduction.amount)}
+                                                        - {formatCurrency(deduction.amount)}
                                                     </td>
                                                 </tr>
                                             );
@@ -533,7 +553,7 @@ export default function Payslip({ user }) {
                                     rows.push(
                                         <tr key="lwp">
                                             <td style={{ padding: '6px 8px', border: '1px solid #000' }}>Leave Without Pay</td>
-                                            <td style={{ padding: '6px 8px', border: '1px solid #000', textAlign: 'right' }}>{lwpAmt.toFixed(2)}</td>
+                                            <td style={{ padding: '6px 8px', border: '1px solid #000', textAlign: 'right' }}>- {lwpAmt.toFixed(2)}</td>
                                         </tr>
                                     );
                                     // Fill remaining rows with empty cells
@@ -551,7 +571,7 @@ export default function Payslip({ user }) {
                                 })()}
                                 <tr>
                                     <td style={{ padding: '8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Amount Total :</td>
-                                    <td style={{ padding: '8px', border: '1px solid #000', textAlign: 'right', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>{formatCurrency(totalDeductions)}</td>
+                                    <td style={{ padding: '8px', border: '1px solid #000', textAlign: 'right', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}> {formatCurrency(totalDeductions)}</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -560,7 +580,7 @@ export default function Payslip({ user }) {
 
                 {/* Net Pay */}
                 <div style={{ marginBottom: '20px', fontSize: '13px', padding: '10px 0', borderTop: '1px solid #000', borderBottom: '1px solid #000' }}>
-                    <div style={{ fontWeight: 'bold', marginBottom: '5px' }}>Net Pay Amount : {netPay < 0 ? 0 : formatCurrency(netPay)}</div>
+                    <div style={{ fontWeight: 'bold', marginBottom: '5px' }}>Net Pay Amount : {formatCurrency(netPay)}</div>
                     <div style={{ fontWeight: 'bold' }}>Net Pay in Words : {numberToWords(netPay) || `-`}</div>
                 </div>
 

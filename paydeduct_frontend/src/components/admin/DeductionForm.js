@@ -15,7 +15,6 @@ const DeductionForm = () => {
   const [errors, setErrors] = useState({});
   const navigate = useNavigate();
   const params = useParams();
-  console.log(params)
 
   const fetchPayslipData = async () => {
     const res = await postData("deduction/payslip_data", { empid: params.empid });
@@ -35,6 +34,43 @@ const DeductionForm = () => {
   useEffect(() => {
     fetchPayslipDate();
   }, [payslipId]);
+
+  const getPreviousMonthFirstDate = () => {
+    const now = new Date();
+    now.setMonth(now.getMonth() - 1);
+    now.setDate(1);
+
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, "0");
+    const dd = String(now.getDate()).padStart(2, "0");
+
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
+  useEffect(() => {
+    if (payslipData.length === 0) return;
+
+    if (payslipData.length > 0 && payslipData[0].date_of_payslip) {
+      const fetchedDate = new Date(payslipData[0].date_of_payslip);
+      const prevMonth = new Date();
+      prevMonth.setMonth(prevMonth.getMonth() - 1);
+
+      const updatedDate = new Date(
+        prevMonth.getFullYear(),
+        prevMonth.getMonth(),
+        fetchedDate.getDate()
+      );
+
+      const yyyy = updatedDate.getFullYear();
+      const mm = String(updatedDate.getMonth() + 1).padStart(2, "0");
+      const dd = String(updatedDate.getDate()).padStart(2, "0");
+
+      setDateOfPayslip(`${yyyy}-${mm}-${dd}`);
+    } else {
+      setDateOfPayslip(getPreviousMonthFirstDate());
+    }
+  }, [payslipData]);
+
 
   const validateForm = () => {
     let tempErrors = {};
@@ -93,28 +129,16 @@ const DeductionForm = () => {
 
       {/* Date Dropdown (Replaces Payslip ID) */}
       <TextField
-        select
         label="Date of Payslip"
+        type="date"
         fullWidth
         margin="normal"
         value={dateOfPayslip}
-        onChange={(e) => {
-          const selectedDate = e.target.value;
-          setDateOfPayslip(selectedDate);
-          const selectedPayslip = payslipData.find(
-            (item) => item.date_of_payslip === selectedDate
-          );
-          if (selectedPayslip) setPayslipId(selectedPayslip.payslip_id);
-        }}
+        onChange={(e) => setDateOfPayslip(e.target.value)}
         error={!!errors.dateOfPayslip}
         helperText={errors.dateOfPayslip}
-      >
-        {payslipData.map((item) => (
-          <MenuItem key={item.date_of_payslip} value={item.date_of_payslip}>
-            {item.date_of_payslip}
-          </MenuItem>
-        ))}
-      </TextField>
+        InputLabelProps={{ shrink: true }}
+      />
 
       {/* Deduction Type Dropdown */}
       <TextField

@@ -209,7 +209,6 @@ const PayslipForm = () => {
                         label="Date of Payslip"
                         type="date"
                         fullWidth
-
                         value={dateOfPayslip}
                         onChange={(e) => setDateOfPayslip(e.target.value)}
                         error={!!errors.dateOfPayslip}
@@ -273,7 +272,6 @@ const PayslipForm = () => {
                         label="CCA"
                         type="text"
                         fullWidth
-
                         value={cca}
                         onChange={(e) => setCca(e.target.value)}
                         error={!!errors.cca}

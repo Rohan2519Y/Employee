@@ -3,12 +3,12 @@
 //     constructor(...args) {
 //         if (args.length === 0) {
 //             // Mocked date
-//             return new OriginalDate('2025-09-20T10:00:00Z');
+//             return new OriginalDate('2025-10-20T10:00:00Z');
 //         }
 //         return new OriginalDate(...args);
 //     }
 //     static now() {
-//         return new OriginalDate('2025-09-20T10:00:00Z').getTime();
+//         return new OriginalDate('2025-10-20T10:00:00Z').getTime();
 //     }
 // };
 
