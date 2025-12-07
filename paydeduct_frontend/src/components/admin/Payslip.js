@@ -4,23 +4,9 @@ import { getData, postData } from '../../backendservices/FetchNodeServices';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import axios from 'axios';
+import AutoPayslipGenerator from "./AutoPayslipGenerator";
 
-// if (process.env.NODE_ENV === 'development') {
-//     const OriginalDate = global.Date;
-//     global.Date = class extends Date {
-//         constructor(...args) {
-//             if (args.length === 0) {
-//                 return new OriginalDate('2025-10-15T00:00:00.000Z');
-//             }
-//             return new OriginalDate(...args);
-//         }
-//         static now() {
-//             return new OriginalDate('2025-10-15T00:00:00.000Z').getTime();
-//         }
-//     };
-// }
-
-export default function Payslip({ user }) {
+export default function Payslip({ user, payId }) {
     const params = useParams();
     const payslipRef = useRef();
     const [payslipData, setPayslipData] = useState([]);
@@ -51,22 +37,18 @@ export default function Payslip({ user }) {
 
     // Function to calculate total leaves based on joining date
     const calculateTotalLeaves = (joiningDate) => {
-        // If no joining date → give full 18 leaves
         if (!joiningDate) return 18;
 
         const join = new Date(joiningDate);
         const currentYear = new Date().getFullYear();
 
-        // Employee joined this year
         if (join.getFullYear() === currentYear) {
             const leaveMonths = 12 - (join.getMonth() + 1) + 1;
             return (18 * leaveMonths) / 12;
         }
 
-        // Employee joined in a previous year → full 18
         return 18;
     };
-
 
     // Function to calculate leaves for the previous month's year
     const calculateLeavesForPreviousMonth = (joiningDate) => {
@@ -173,10 +155,9 @@ export default function Payslip({ user }) {
         return isNegative ? "Minus " + str : str;
     };
 
-
     // API calls
     const fetchPayslipData = async () => {
-        const res = await postData('payslip/payslip_data_by_id', { payslipId: params.payslipid });
+        const res = await postData('payslip/payslip_data_by_id', { payslipId: params.payslipid || payId });
         setPayslipData(res.data);
     };
 
@@ -199,18 +180,12 @@ export default function Payslip({ user }) {
     const fetchEmpAttendance = async () => {
         const res = await axios.get(`https://campusshala.com:3022/employeeLoginDetail/${payslipData[0].employee_id}`);
         setEmpAttendence(res.data.data);
-        // const res = await postData('employee/fetch_empattendence_by_id', { empid: payslipData[0].employee_id })
-        // setEmpAttendence(res.data)
-        // console.log(res.data)
     };
 
     function getPreviousMonthAttendanceCount(attendanceList) {
         if (!Array.isArray(attendanceList)) return 0;
 
-        // Today
         const today = new Date();
-
-        // Previous month calculation
         let prevMonth = today.getMonth() - 1;
         let prevYear = today.getFullYear();
 
@@ -219,9 +194,8 @@ export default function Payslip({ user }) {
             prevYear -= 1;
         }
 
-        // Helper attendance logic (fixed version of your function)
         const calculateDayAttendance = (checkin, checkout) => {
-            if (!checkin || !checkout) return 0; // FIXED
+            if (!checkin || !checkout) return 0;
 
             const inTime = new Date(checkin);
             const outTime = new Date(checkout);
@@ -230,25 +204,21 @@ export default function Payslip({ user }) {
             if (workedMs <= 0) return 0;
 
             const workedHours = workedMs / (1000 * 60 * 60);
-            const day = inTime.getDay(); // 1–5 = Mon–Fri
+            const day = inTime.getDay();
 
             if (day >= 1 && day <= 5) {
-                if (workedHours < 6) return 0.5; // half-day
-                return 1; // full-day
+                if (workedHours < 6) return 0.5;
+                return 1;
             }
 
-            return 1; // Saturday/Sunday no half day rule
+            return 1;
         };
 
-        // Main calculation
         return attendanceList.reduce((sum, item) => {
             const d = new Date(item.checkin_date);
-
-            // Only previous month data
             if (d.getMonth() === prevMonth && d.getFullYear() === prevYear) {
                 return sum + calculateDayAttendance(item.checkin_date, item.checkout_date);
             }
-
             return sum;
         }, 0);
     }
@@ -283,22 +253,18 @@ export default function Payslip({ user }) {
         return monthlyLeaveData
             .filter(leave => leave.type_of_leave === "SL")
             .reduce((total, leave) => {
-                // Skip if not in target month
                 const start = new Date(leave.start_date);
                 if (start.getMonth() !== previousMonth || start.getFullYear() !== yearOfPrevMonth) {
                     return total;
                 }
 
-                // If value is provided, use it
                 if (leave.value && !isNaN(parseFloat(leave.value))) {
                     return total + parseFloat(leave.value);
                 }
 
-                // Calculate inclusive days difference
                 const startDate = new Date(leave.start_date);
                 const endDate = new Date(leave.end_date);
 
-                // Set both to midnight to avoid time component issues
                 startDate.setHours(0, 0, 0, 0);
                 endDate.setHours(0, 0, 0, 0);
 
@@ -326,8 +292,29 @@ export default function Payslip({ user }) {
         return deductions;
     }, [payslipData])
 
+    // Add this function with your other reusable functions (after calculateTotalLeaves)
+    const calculateProrataDays = (joiningDate) => {
+        if (!joiningDate) return prevMonthTotalDays;
+
+        const joinDate = new Date(joiningDate);
+        const currentDate = new Date();
+        const prevMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1);
+
+        // Check if joining date is in previous month
+        if (joinDate.getFullYear() === prevMonth.getFullYear() &&
+            joinDate.getMonth() === prevMonth.getMonth()) {
+
+            // Calculate days from joining date to end of month
+            const daysInMonth = new Date(joinDate.getFullYear(), joinDate.getMonth() + 1, 0).getDate();
+            return daysInMonth - joinDate.getDate() + 1;
+        }
+
+        return prevMonthTotalDays;
+    };
+
     // Original formulas preserved
-    const presentDays = getPreviousMonthAttendanceCount(empAttendence);
+    const prorataDays = calculateProrataDays(payslipData[0]?.anniversary);
+    const presentDays = Math.min(getPreviousMonthAttendanceCount(empAttendence), prorataDays);
     const calculateSundayLeaves = (pd = presentDays + (parseFloat(countData[0]?.HD) || 0) +
         (parseFloat(countData[0]?.SHL) || 0) +
         (parseFloat(countData[0]?.SL) || 0)) => {
@@ -341,9 +328,9 @@ export default function Payslip({ user }) {
     const leaveTaken =
         (parseFloat(countData[0]?.HD) || 0) +
         (parseFloat(countData[0]?.SHL) || 0) +
-        (parseFloat(countData[0]?.SL) || 0) + (prevMonthTotalDays - presentDays - prevMonthSundays - publicHolidays - totalSL - monthlyHalfDay - monthlyShortLeave)
+        (parseFloat(countData[0]?.SL) || 0) + (prorataDays - presentDays - prevMonthSundays - publicHolidays - totalSL - monthlyHalfDay - monthlyShortLeave)
     const balanceLeave = totalLeave - leaveTaken;
-    const absentDays = prevMonthTotalDays - presentDays - prevMonthSundays - publicHolidays - totalSL - monthlyHalfDay - monthlyShortLeave;
+    const absentDays = prorataDays - presentDays - prevMonthSundays - publicHolidays - totalSL - monthlyHalfDay - monthlyShortLeave;
     let totalLwp
     let calsun = calculateSundayLeaves(presentDays)
     if (calsun == 4) {
@@ -352,9 +339,8 @@ export default function Payslip({ user }) {
     else {
         totalLwp = (balanceLeave < 0 ? (leaveTaken - totalLeave) : 0)
     }
-    const lwpAmt = totalLwp * ((parseInt(payslipData[0]?.basic_salary) || 0) + (parseInt(payslipData[0]?.incentive) || 0)) / prevMonthTotalDays;
-    const earningsTotal = (parseInt(payslipData[0]?.basic_salary || 0) + parseInt(payslipData[0]?.incentive || 0)) || 0;
-
+    const lwpAmt = totalLwp * ((parseInt(payslipData[0]?.basic_salary) || 0) + (parseInt(payslipData[0]?.incentive) || 0)) / prorataDays;
+    const earningsTotal = ((parseInt(payslipData[0]?.basic_salary || 0) + parseInt(payslipData[0]?.incentive || 0)) * prorataDays / prevMonthTotalDays) || 0;
     const totalDeductions = Object.values(calculateDeductions).reduce((sum, amount) => sum + amount, 0) + lwpAmt;
     const netPay = earningsTotal - totalDeductions
 
@@ -363,13 +349,19 @@ export default function Payslip({ user }) {
     const downloadPDF = async () => {
         const element = payslipRef.current;
         const canvas = await html2canvas(element, { scale: 2, useCORS: true });
+
         const imgData = canvas.toDataURL("image/png");
+
         const pdf = new jsPDF("p", "mm", "a4");
         const pdfWidth = pdf.internal.pageSize.getWidth();
         const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+
         pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
-        const pdfBlobUrl = pdf.output("bloburl");
-        window.open(pdfBlobUrl, "_blank");
+
+        const pdfBlob = pdf.output("blob");
+        const file = new File([pdfBlob], "payslip.pdf", { type: "application/pdf" });
+        const url = URL.createObjectURL(file);
+        window.open(url, "_blank");
     };
 
     useEffect(() => {
@@ -377,6 +369,7 @@ export default function Payslip({ user }) {
         fetchPubLicHolidays();
     }, []);
 
+    // In your useEffect, update how you set totalLeave:
     useEffect(() => {
         if (payslipData.length > 0 && payslipData[0].employee_id) {
             fetchCount();
@@ -384,228 +377,461 @@ export default function Payslip({ user }) {
             fetchEmpAttendance();
             if (payslipData[0]?.anniversary) {
                 const calculatedLeaves = calculateLeavesForPreviousMonth(payslipData[0].anniversary);
-                setTotalLeave(calculatedLeaves);
+
+                // Add pro-rata adjustment if joined mid-month
+                const joinDate = new Date(payslipData[0].anniversary);
+                const prevMonth = new Date(new Date().getFullYear(), new Date().getMonth() - 1);
+
+                if (joinDate.getFullYear() === prevMonth.getFullYear() &&
+                    joinDate.getMonth() === prevMonth.getMonth()) {
+                    // Pro-rata the leaves for mid-month join
+                    const daysInMonth = new Date(joinDate.getFullYear(), joinDate.getMonth() + 1, 0).getDate();
+                    const daysWorked = daysInMonth - joinDate.getDate() + 1;
+                    const prorataFactor = daysWorked / daysInMonth;
+                    setTotalLeave(calculatedLeaves * prorataFactor);
+                } else {
+                    setTotalLeave(calculatedLeaves);
+                }
             }
         }
     }, [payslipData]);
 
     return (
-        <div style={{ paddingTop: '20px', backgroundColor: '#f5f5f5', minHeight: '90vh' }}>
-            <div ref={payslipRef} style={{ maxWidth: '90%', margin: '0 auto', backgroundColor: '#ffffff', border: '2px solid #000', padding: '30px', fontFamily: 'Arial, sans-serif' }}>
+        <>
+            {payslipData && <AutoPayslipGenerator
+                payslipRef={payslipRef}
+                employeeId={payslipData[0]?.employee_id}
+                payslipDate={payslipData[0]?.date_of_payslip}
+                payId={params.payslipid}
+            />}
 
-                {/* Header */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '15px', paddingBottom: '10px', borderBottom: '2px solid #000' }}>
-                    <div>
-                        <h1 style={{ margin: 0, fontSize: '22px', fontWeight: 'bold' }}>PaySlip {payslipData[0]?.payslip_id}</h1>
-                    </div>
-                    <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: '13px', fontWeight: 'bold', marginBottom: '3px' }}>Payslip for the month {currentMonthYear}</div>
-                        <div style={{ fontSize: '13px' }}>Branch Gwalior</div>
-                    </div>
-                </div>
-
-                {/* Employee Info Grid */}
-                <table style={{ width: '100%', marginBottom: '15px', fontSize: '12px', borderCollapse: 'collapse' }}>
-                    <tbody>
-                        <tr>
-                            <td style={{ padding: '5px 8px', width: '15%', fontWeight: 'bold' }}>Emp Code</td>
-                            <td style={{ padding: '5px 8px', width: '18%' }}>{payslipData[0]?.employee_id}</td>
-                            <td style={{ padding: '5px 8px', width: '17%', fontWeight: 'bold' }}>Employee Name</td>
-                            <td style={{ padding: '5px 8px', width: '17%' }}>{payslipData[0]?.name}</td>
-                            <td style={{ padding: '5px 8px', fontWeight: 'bold' }}>Joining Date</td>
-                            <td style={{ padding: '5px 8px' }}>{payslipData[0]?.anniversary}</td>
-                        </tr>
-                        <tr>
-                            <td style={{ padding: '5px 8px', fontWeight: 'bold' }}>Grade</td>
-                            <td style={{ padding: '5px 8px' }}>Lateral</td>
-                            <td style={{ padding: '5px 8px', fontWeight: 'bold' }}>Department</td>
-                            <td style={{ padding: '5px 8px' }}>Non IT</td>
-                            <td style={{ padding: '5px 8px', fontWeight: 'bold' }}>Designation</td>
-                            <td style={{ padding: '5px 8px' }}>{payslipData[0]?.designation}</td>
-                        </tr>
-                        <tr>
-                            <td style={{ padding: '5px 8px', fontWeight: 'bold' }}>ESIC No</td>
-                            <td style={{ padding: '5px 8px' }}></td>
-                            <td style={{ padding: '5px 8px', fontWeight: 'bold' }}>PF No</td>
-                            <td style={{ padding: '5px 8px' }}></td>
-                            <td style={{ padding: '5px 8px', fontWeight: 'bold' }}>Division</td>
-                            <td style={{ padding: '5px 8px' }}></td>
-                        </tr>
-                    </tbody>
-                </table>
-
-                {/* Attendance Section */}
-                <table style={{ width: '100%', marginBottom: '15px', fontSize: '11px', borderCollapse: 'collapse', border: '1px solid #000' }}>
-                    <tbody>
-                        <tr>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Month Days</td>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{prevMonthTotalDays.toFixed(2)}</td>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Days Present</td>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000' }}>
-                                {presentDays.toFixed(2)}
-                            </td>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>W.Off/Pd.Off</td>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000' }}>
-                                {prevMonthSundays.toFixed(2)} / {publicHolidays.toFixed(2)}
-                            </td>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Total Yearly Leave</td>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{totalLeave.toFixed(2)}</td>
-                        </tr>
-                        <tr>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Leave Without Pay</td>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{totalLwp.toFixed(2)}</td>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>This Month Sick / Casual Leave</td>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{totalSL.toFixed(2) || 0}</td>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>This Month Short Leave / Half day</td>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{monthlyShortLeave.toFixed(2) || 0} / {monthlyHalfDay.toFixed(2) || 0}</td>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Yearly Leave Taken</td>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{leaveTaken >= totalLeave ? totalLeave.toFixed(2) : leaveTaken.toFixed(2)}</td>
-                        </tr>
-                        <tr>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>This Month Absent</td>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{absentDays.toFixed(2)}</td>
-                            <td style={{ padding: '5px 0px 5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>This Month Total Leaves</td>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{thisMonthLeaves.toFixed(2)}</td>
-                            <td style={{ padding: '5px 0px 5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}></td>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000' }}></td>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Yearly Bal. Leave</td>
-                            <td style={{ padding: '5px 8px', border: '1px solid #000' }}>{balanceLeave < 0 ? 0.00 : balanceLeave.toFixed(2)}</td>
-                        </tr>
-                    </tbody>
-                </table>
-
-                {/* Earnings and Deductions */}
-                <div style={{ display: 'flex', gap: '15px', marginBottom: '15px' }}>
-                    {/* Earnings */}
-                    <div style={{ flex: 1 }}>
-                        <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse', border: '2px solid #000' }}>
-                            <thead>
-                                <tr>
-                                    <th style={{ padding: '8px', border: '1px solid #000', backgroundColor: '#e0e0e0', textAlign: 'left', fontWeight: 'bold' }}>Earnings</th>
-                                    <th style={{ padding: '8px', border: '1px solid #000', backgroundColor: '#e0e0e0', textAlign: 'right', fontWeight: 'bold', width: '35%' }}>Amount</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td style={{ padding: '6px 8px', border: '1px solid #000' }}>Basic</td>
-                                    <td style={{ padding: '6px 8px', border: '1px solid #000', textAlign: 'right' }}>{formatCurrency(payslipData[0]?.basic_salary - payslipData[0]?.da - payslipData[0]?.da)}</td>
-                                </tr>
-                                <tr>
-                                    <td style={{ padding: '6px 8px', border: '1px solid #000' }}>H.R.A</td>
-                                    <td style={{ padding: '6px 8px', border: '1px solid #000', textAlign: 'right' }}>{formatCurrency(payslipData[0]?.hra)}</td>
-                                </tr>
-                                <tr>
-                                    <td style={{ padding: '6px 8px', border: '1px solid #000' }}>D.A</td>
-                                    <td style={{ padding: '6px 8px', border: '1px solid #000', textAlign: 'right' }}>{formatCurrency(payslipData[0]?.da)}</td>
-                                </tr>
-                                <tr>
-                                    <td style={{ padding: '6px 8px', border: '1px solid #000' }}>Incentive</td>
-                                    <td style={{ padding: '6px 8px', border: '1px solid #000', textAlign: 'right' }}>{formatCurrency(payslipData[0]?.incentive)}</td>
-                                </tr>
-                                <tr>
-                                    <td style={{ padding: '6px 8px', border: '1px solid #000' }}>C.C.A</td>
-                                    <td style={{ padding: '6px 8px', border: '1px solid #000', textAlign: 'right' }}>{payslipData[0]?.cca}</td>
-                                </tr>
-                                <tr>
-                                    <td style={{ padding: '8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Amount Total :</td>
-                                    <td style={{ padding: '8px', border: '1px solid #000', textAlign: 'right', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>{formatCurrency(earningsTotal)}</td>
-                                </tr>
-                            </tbody>
-                        </table>
+            <div style={{ padding: '20px', backgroundColor: '#f5f5f5', minHeight: '90vh' }}>
+                <div ref={payslipRef} style={{
+                    width: '210mm',
+                    minHeight: 450,
+                    margin: '0 auto',
+                    backgroundColor: '#ffffff',
+                    padding: 20,
+                    fontFamily: 'Arial, sans-serif',
+                    fontSize: '11px',
+                    lineHeight: '1.3',
+                    boxSizing: 'border-box',
+                    border: '1px solid #000'
+                }}>
+                    {/* Header */}
+                    <div style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'flex-start',
+                        marginBottom: '12px',
+                        paddingBottom: '8px',
+                        borderBottom: '2px solid #000'
+                    }}>
+                        <div>
+                            <h1 style={{
+                                margin: '0 0 4px 0',
+                                fontSize: '20px',
+                                fontWeight: 'bold',
+                                color: '#000'
+                            }}>PAYSLIP</h1>
+                            <div style={{ fontSize: '12px', fontWeight: 'bold' }}>Numeric Infoysis PS Softech</div>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                            <div style={{ fontSize: '12px', fontWeight: 'bold' }}>Payslip ID: {params.payslipid || payId}</div>
+                            <div style={{ fontSize: '12px', marginTop: '4px' }}>For Month: {currentMonthYear}</div>
+                            <div style={{ fontSize: '11px', marginTop: '2px' }}>Branch: Gwalior</div>
+                        </div>
                     </div>
 
-                    {/* Deductions */}
-                    <div style={{ flex: 1 }}>
-                        <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse', border: '2px solid #000' }}>
-                            <thead>
-                                <tr>
-                                    <th style={{ padding: '8px', border: '1px solid #000', backgroundColor: '#e0e0e0', textAlign: 'left', fontWeight: 'bold' }}>Deductions & Recoveries</th>
-                                    <th style={{ padding: '8px', border: '1px solid #000', backgroundColor: '#e0e0e0', textAlign: 'right', fontWeight: 'bold', width: '35%' }}>Amount</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {(() => {
-                                    // Get all deduction types from calculateDeductions object
-                                    const availableDeductions = Object.entries(calculateDeductions)
-                                        .filter(([type, amount]) => amount > 0)
-                                        .map(([type, amount]) => ({
-                                            type: type,
-                                            name: type.charAt(0).toUpperCase() + type.slice(1),
-                                            amount: amount
-                                        }));
+                    {/* Employee Details */}
+                    <table style={{
+                        width: '100%',
+                        marginBottom: '12px',
+                        fontSize: '11px',
+                        borderCollapse: 'collapse',
+                        border: '1px solid #000'
+                    }}>
+                        <tbody>
+                            <tr style={{ borderBottom: '1px solid #000' }}>
+                                <td style={{
+                                    padding: '6px 8px',
+                                    width: '15%',
+                                    fontWeight: 'bold',
+                                    backgroundColor: '#f0f0f0',
+                                    borderRight: '1px solid #000'
+                                }}>Emp Code</td>
+                                <td style={{ padding: '6px 8px', width: '18%' }}>{payslipData[0]?.employee_id}</td>
+                                <td style={{
+                                    padding: '6px 8px',
+                                    width: '17%',
+                                    fontWeight: 'bold',
+                                    backgroundColor: '#f0f0f0',
+                                    borderRight: '1px solid #000',
+                                    borderLeft: '1px solid #000'
+                                }}>Employee Name</td>
+                                <td style={{ padding: '6px 8px', width: '17%' }}>{payslipData[0]?.name}</td>
+                                <td style={{
+                                    padding: '6px 8px',
+                                    fontWeight: 'bold',
+                                    backgroundColor: '#f0f0f0',
+                                    borderRight: '1px solid #000',
+                                    borderLeft: '1px solid #000'
+                                }}>Joining Date</td>
+                                <td style={{ padding: '6px 8px' }}>{payslipData[0]?.anniversary}</td>
+                            </tr>
+                            <tr style={{ borderBottom: '1px solid #000' }}>
+                                <td style={{
+                                    padding: '6px 8px',
+                                    fontWeight: 'bold',
+                                    backgroundColor: '#f0f0f0',
+                                    borderRight: '1px solid #000'
+                                }}>Grade</td>
+                                <td style={{ padding: '6px 8px' }}>Lateral</td>
+                                <td style={{
+                                    padding: '6px 8px',
+                                    fontWeight: 'bold',
+                                    backgroundColor: '#f0f0f0',
+                                    borderRight: '1px solid #000',
+                                    borderLeft: '1px solid #000'
+                                }}>Department</td>
+                                <td style={{ padding: '6px 8px' }}>HR</td>
+                                <td style={{
+                                    padding: '6px 8px',
+                                    fontWeight: 'bold',
+                                    backgroundColor: '#f0f0f0',
+                                    borderRight: '1px solid #000',
+                                    borderLeft: '1px solid #000'
+                                }}>Designation</td>
+                                <td style={{ padding: '6px 8px' }}>{payslipData[0]?.designation}</td>
+                            </tr>
+                            <tr>
+                                <td style={{
+                                    padding: '6px 8px',
+                                    fontWeight: 'bold',
+                                    backgroundColor: '#f0f0f0',
+                                    borderRight: '1px solid #000'
+                                }}>ESIC No</td>
+                                <td style={{ padding: '6px 8px' }}></td>
+                                <td style={{
+                                    padding: '6px 8px',
+                                    fontWeight: 'bold',
+                                    backgroundColor: '#f0f0f0',
+                                    borderRight: '1px solid #000',
+                                    borderLeft: '1px solid #000'
+                                }}>PF No</td>
+                                <td style={{ padding: '6px 8px' }}></td>
+                                <td style={{
+                                    padding: '6px 8px',
+                                    fontWeight: 'bold',
+                                    backgroundColor: '#f0f0f0',
+                                    borderRight: '1px solid #000',
+                                    borderLeft: '1px solid #000'
+                                }}>Division</td>
+                                <td style={{ padding: '6px 8px' }}></td>
+                            </tr>
+                        </tbody>
+                    </table>
 
-                                    // Always show 4 rows for deductions + 1 row for LWP
-                                    const rows = [];
+                    {/* Attendance Summary - OPTIONAL (commented out in original) */}
+                    {/* <table style={{ 
+                        width: '100%', 
+                        marginBottom: '12px', 
+                        fontSize: '10px', 
+                        borderCollapse: 'collapse', 
+                        border: '1px solid #000' 
+                    }}>
+                        <tbody>
+                            <tr>
+                                <td style={{ padding: '4px 6px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Month Days</td>
+                                <td style={{ padding: '4px 6px', border: '1px solid #000' }}>{prevMonthTotalDays.toFixed(2)}</td>
+                                <td style={{ padding: '4px 6px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Days Present</td>
+                                <td style={{ padding: '4px 6px', border: '1px solid #000' }}>{presentDays.toFixed(2)}</td>
+                                <td style={{ padding: '4px 6px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>W.Off/Pd.Off</td>
+                                <td style={{ padding: '4px 6px', border: '1px solid #000' }}>{prevMonthSundays.toFixed(2)} / {publicHolidays.toFixed(2)}</td>
+                                <td style={{ padding: '4px 6px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Total Yearly Leave</td>
+                                <td style={{ padding: '4px 6px', border: '1px solid #000' }}>{totalLeave.toFixed(2)}</td>
+                            </tr>
+                        </tbody>
+                    </table> */}
 
-                                    // Add available deductions first
-                                    availableDeductions.forEach((deduction, index) => {
-                                        if (index < 4) {
+                    {/* Earnings and Deductions */}
+                    <div style={{
+                        display: 'flex',
+                        gap: '12px',
+                        marginBottom: '15px'
+                    }}>
+                        {/* Earnings Table */}
+                        <div style={{ flex: 1 }}>
+                            <table style={{
+                                width: '100%',
+                                fontSize: '11px',
+                                borderCollapse: 'collapse',
+                                border: '1px solid #000'
+                            }}>
+                                <thead>
+                                    <tr>
+                                        <th style={{
+                                            padding: '8px 6px',
+                                            border: '1px solid #000',
+                                            backgroundColor: '#e0e0e0',
+                                            textAlign: 'left',
+                                            fontWeight: 'bold',
+                                            fontSize: '12px'
+                                        }}>Earnings</th>
+                                        <th style={{
+                                            padding: '8px 6px',
+                                            border: '1px solid #000',
+                                            backgroundColor: '#e0e0e0',
+                                            textAlign: 'right',
+                                            fontWeight: 'bold',
+                                            fontSize: '12px',
+                                            width: '35%'
+                                        }}>Amount (₹)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td style={{ padding: '6px 6px', border: '1px solid #000' }}>Basic</td>
+                                        <td style={{
+                                            padding: '6px 6px',
+                                            border: '1px solid #000',
+                                            textAlign: 'right',
+                                            fontWeight: '500'
+                                        }}>{formatCurrency(payslipData[0]?.basic_salary - payslipData[0]?.hra - payslipData[0]?.da - payslipData[0]?.cca)}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style={{ padding: '6px 6px', border: '1px solid #000' }}>H.R.A</td>
+                                        <td style={{
+                                            padding: '6px 6px',
+                                            border: '1px solid #000',
+                                            textAlign: 'right',
+                                            fontWeight: '500'
+                                        }}>{formatCurrency(payslipData[0]?.hra)}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style={{ padding: '6px 6px', border: '1px solid #000' }}>D.A</td>
+                                        <td style={{
+                                            padding: '6px 6px',
+                                            border: '1px solid #000',
+                                            textAlign: 'right',
+                                            fontWeight: '500'
+                                        }}>{formatCurrency(payslipData[0]?.da)}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style={{ padding: '6px 6px', border: '1px solid #000' }}>Transportation Allowance</td>
+                                        <td style={{
+                                            padding: '6px 6px',
+                                            border: '1px solid #000',
+                                            textAlign: 'right',
+                                            fontWeight: '500'
+                                        }}>{payslipData[0]?.cca || '0.00'}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style={{ padding: '6px 6px', border: '1px solid #000' }}>Incentive</td>
+                                        <td style={{
+                                            padding: '6px 6px',
+                                            border: '1px solid #000',
+                                            textAlign: 'right',
+                                            fontWeight: '500'
+                                        }}>{formatCurrency(payslipData[0]?.incentive)}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style={{
+                                            padding: '8px 6px',
+                                            border: '1px solid #000',
+                                            fontWeight: 'bold',
+                                            backgroundColor: '#f0f0f0',
+                                            fontSize: '12px'
+                                        }}>Total Earnings:</td>
+                                        <td style={{
+                                            padding: '8px 6px',
+                                            border: '1px solid #000',
+                                            textAlign: 'right',
+                                            fontWeight: 'bold',
+                                            backgroundColor: '#f0f0f0',
+                                            fontSize: '12px'
+                                        }}>₹{formatCurrency(earningsTotal)}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* Deductions Table */}
+                        <div style={{ flex: 1 }}>
+                            <table style={{
+                                width: '100%',
+                                fontSize: '11px',
+                                borderCollapse: 'collapse',
+                                border: '1px solid #000'
+                            }}>
+                                <thead>
+                                    <tr>
+                                        <th style={{
+                                            padding: '8px 6px',
+                                            border: '1px solid #000',
+                                            backgroundColor: '#e0e0e0',
+                                            textAlign: 'left',
+                                            fontWeight: 'bold',
+                                            fontSize: '12px'
+                                        }}>Deductions & Recoveries</th>
+                                        <th style={{
+                                            padding: '8px 6px',
+                                            border: '1px solid #000',
+                                            backgroundColor: '#e0e0e0',
+                                            textAlign: 'right',
+                                            fontWeight: 'bold',
+                                            fontSize: '12px',
+                                            width: '35%'
+                                        }}>Amount (₹)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {(() => {
+                                        const availableDeductions = Object.entries(calculateDeductions)
+                                            .filter(([type, amount]) => amount > 0)
+                                            .map(([type, amount]) => ({
+                                                type: type,
+                                                name: type.charAt(0).toUpperCase() + type.slice(1),
+                                                amount: amount
+                                            }));
+
+                                        const rows = [];
+
+                                        availableDeductions.forEach((deduction, index) => {
+                                            if (index < 4) {
+                                                rows.push(
+                                                    <tr key={deduction.type}>
+                                                        <td style={{ padding: '6px 6px', border: '1px solid #000' }}>{deduction.name}</td>
+                                                        <td style={{
+                                                            padding: '6px 6px',
+                                                            border: '1px solid #000',
+                                                            textAlign: 'right',
+                                                            fontWeight: '500',
+                                                            color: '#000'
+                                                        }}>- {formatCurrency(deduction.amount)}</td>
+                                                    </tr>
+                                                );
+                                            }
+                                        });
+
+                                        rows.push(
+                                            <tr key="lwp">
+                                                <td style={{ padding: '6px 6px', border: '1px solid #000' }}>Absentees / Short Hours</td>
+                                                <td style={{
+                                                    padding: '6px 6px',
+                                                    border: '1px solid #000',
+                                                    textAlign: 'right',
+                                                    fontWeight: '500',
+                                                    color: '#000'
+                                                }}>- {lwpAmt.toFixed(2)}</td>
+                                            </tr>
+                                        );
+
+                                        for (let i = availableDeductions.length; i < 4; i++) {
                                             rows.push(
-                                                <tr key={deduction.type}>
-                                                    <td style={{ padding: '6px 8px', border: '1px solid #000' }}>{deduction.name}</td>
-                                                    <td style={{ padding: '6px 8px', border: '1px solid #000', textAlign: 'right' }}>
-                                                        - {formatCurrency(deduction.amount)}
-                                                    </td>
+                                                <tr key={`empty-${i}`}>
+                                                    <td style={{ padding: '6px 6px', border: '1px solid #000' }}>&nbsp;</td>
+                                                    <td style={{ padding: '6px 6px', border: '1px solid #000', textAlign: 'right' }}>&nbsp;</td>
                                                 </tr>
                                             );
                                         }
-                                    });
-                                    rows.push(
-                                        <tr key="lwp">
-                                            <td style={{ padding: '6px 8px', border: '1px solid #000' }}>Leave Without Pay</td>
-                                            <td style={{ padding: '6px 8px', border: '1px solid #000', textAlign: 'right' }}>- {lwpAmt.toFixed(2)}</td>
-                                        </tr>
-                                    );
-                                    // Fill remaining rows with empty cells
-                                    for (let i = availableDeductions.length; i < 4; i++) {
-                                        rows.push(
-                                            <tr key={`empty-${i}`}>
-                                                <td style={{ padding: '6px 8px', border: '1px solid #000' }}>&nbsp;</td>
-                                                <td style={{ padding: '6px 8px', border: '1px solid #000', textAlign: 'right' }}>&nbsp;</td>
-                                            </tr>
-                                        );
-                                    }
 
+                                        return rows;
+                                    })()}
+                                    <tr>
+                                        <td style={{
+                                            padding: '8px 6px',
+                                            border: '1px solid #000',
+                                            fontWeight: 'bold',
+                                            backgroundColor: '#f0f0f0',
+                                            fontSize: '12px'
+                                        }}>Total Deductions:</td>
+                                        <td style={{
+                                            padding: '8px 6px',
+                                            border: '1px solid #000',
+                                            textAlign: 'right',
+                                            fontWeight: 'bold',
+                                            backgroundColor: '#f0f0f0',
+                                            fontSize: '12px',
+                                            color: '#000'
+                                        }}>- ₹{formatCurrency(totalDeductions)}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
 
-                                    return rows;
-                                })()}
-                                <tr>
-                                    <td style={{ padding: '8px', border: '1px solid #000', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>Amount Total :</td>
-                                    <td style={{ padding: '8px', border: '1px solid #000', textAlign: 'right', fontWeight: 'bold', backgroundColor: '#f0f0f0' }}> {formatCurrency(totalDeductions)}</td>
-                                </tr>
-                            </tbody>
-                        </table>
+                    {/* Net Pay Section */}
+                    <div style={{
+                        marginBottom: '15px',
+                        padding: '12px',
+                        border: '2px solid #000',
+                        backgroundColor: '#f9f9f9'
+                    }}>
+                        <div style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            marginBottom: '8px'
+                        }}>
+                            <div style={{ fontSize: '14px', fontWeight: 'bold' }}>
+                                Net Pay Amount:
+                                <span style={{
+                                    fontSize: '16px',
+                                    marginLeft: '10px',
+                                    color: '#000'
+                                }}>₹{formatCurrency(netPay)}</span>
+                            </div>
+
+                        </div>
+                        <div style={{
+                            fontSize: '12px',
+                            fontWeight: '500',
+                            paddingTop: '6px',
+                            borderTop: '1px dashed #ccc'
+                        }}>
+                            <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>In Words:</div>
+                            <div>{numberToWords(netPay) || `-`}</div>
+                        </div>
+                    </div>
+
+                    {/* Footer */}
+                    <div style={{
+                        fontSize: '11px',
+                        paddingTop: '15px',
+                        borderTop: '1px solid #000',
+                        textAlign: 'center',
+                        color: '#666'
+                    }}>
+                        <div style={{ fontWeight: 'bold', fontSize: '12px', marginBottom: '4px' }}>
+                            Numeric Infoysis PS Softech
+                        </div>
+                        <div>This is a computer generated payslip and does not require signature</div>
                     </div>
                 </div>
-
-                {/* Net Pay */}
-                <div style={{ marginBottom: '20px', fontSize: '13px', padding: '10px 0', borderTop: '1px solid #000', borderBottom: '1px solid #000' }}>
-                    <div style={{ fontWeight: 'bold', marginBottom: '5px' }}>Net Pay Amount : {formatCurrency(netPay)}</div>
-                    <div style={{ fontWeight: 'bold' }}>Net Pay in Words : {numberToWords(netPay) || `-`}</div>
-                </div>
-
-                {/* Footer */}
-                <div style={{ fontSize: '12px', paddingTop: '15px', borderTop: '1px solid #000' }}>
-                    <div style={{ fontWeight: 'bold', fontSize: '14px', marginBottom: '5px' }}>Skillventory</div>
-                    <div>Numeric Infoysis PS Softech</div>
+                <div style={{
+                    textAlign: 'center',
+                    marginTop: '20px',
+                    marginBottom: '40px'
+                }}>
+                    <button
+                        onClick={downloadPDF}
+                        style={{
+                            backgroundColor: '#1976d2',
+                            color: '#fff',
+                            padding: '12px 24px',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontSize: '14px',
+                            fontWeight: 'bold',
+                            boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                        }}
+                    >
+                        Download Payslip (PDF)
+                    </button>
                 </div>
             </div>
-            <button
-                onClick={downloadPDF}
-                style={{
-                    backgroundColor: '#1976d2',
-                    color: '#fff',
-                    padding: '10px 10px',
-                    border: 'none',
-                    borderRadius: '5px',
-                    cursor: 'pointer',
-                    marginTop: '20px',
-                    marginLeft: 1050,
-                    width: '12%'
-                }}
-            >
-                Download Payslip
-            </button>
-        </div>
+        </>
     );
 }

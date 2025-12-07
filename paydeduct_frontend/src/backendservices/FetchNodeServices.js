@@ -1,5 +1,5 @@
 import axios from "axios";
-// const serverURL = 'http://localhost:5000'
+// const serverURL = 'https://campusshala.com:3022'
 const serverURL = 'http://localhost:5000'
 const postData = async (url, body) => {
     try {

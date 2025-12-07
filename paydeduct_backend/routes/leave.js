@@ -107,4 +107,22 @@ router.post('/emp_holiday', function (req, res, next) {
         res.status(202).json({ status: false, message: 'Critical Error, Pls Contact Server Administrator' })
     }
 })
+
+// router.post('/insert_leave', function (req, res, next) {
+//     try {
+//         pool.query('insert into emp_leave ', [req.body.employeeId], function (error, result) {
+//             if (error) {
+//                 console.log(error)
+//                 res.status(201).json({ status: false, message: 'Database Error,Pls Contact Backend Team' })
+//             }
+//             else {
+//                 res.status(200).json({ status: true, message: 'Data Fetched', data: result })
+//             }
+//         })
+//     }
+//     catch (e) {
+//         res.status(202).json({ status: false, message: 'Critical Error, Pls Contact Server Administrator' })
+//     }
+// })
+
 module.exports = router

@@ -54,18 +54,49 @@ router.post('/fetch_emp_by_id', function (req, res, next) {
 
 router.post('/fetch_empattendence_by_id', function (req, res, next) {
     try {
-        pool.query("select * from emp_login_details where employee_id=?", [req.body.empid], function (error, result) {
+        const { empid, filterType } = req.body;
+
+        let query = "SELECT * FROM emp_login_details WHERE employee_id = ?";
+        let params = [empid];
+
+        // THIS MONTH
+        if (filterType === "thisMonth") {
+            query += `
+                AND MONTH(checkin_date) = MONTH(CURRENT_DATE)
+                AND YEAR(checkin_date) = YEAR(CURRENT_DATE)
+            `;
+        }
+
+        // PREVIOUS MONTH
+        else if (filterType === "previousMonth") {
+            query += `
+                AND MONTH(checkin_date) = MONTH(CURRENT_DATE - INTERVAL 1 MONTH)
+                AND YEAR(checkin_date) = YEAR(CURRENT_DATE - INTERVAL 1 MONTH)
+            `;
+        }
+
+        pool.query(query, params, function (error, result) {
             if (error) {
-                console.log(error)
-                res.status(201).json({ status: false, message: 'Database Error,Pls Contact Backend Team' })
+                console.log(error);
+                return res.status(500).json({
+                    status: false,
+                    message: "Database Error, Please contact backend team"
+                });
             }
-            else {
-                res.status(200).json({ status: true, message: 'Login Successful', data: result })
-            }
-        })
+
+            res.status(200).json({
+                status: true,
+                message: "Attendance fetched successfully",
+                data: result
+            });
+        });
     }
     catch (e) {
-        res.status(202).json({ status: false, message: 'Critical Error' })
+        console.log(e);
+        res.status(500).json({
+            status: false,
+            message: "Critical Error"
+        });
     }
 });
 

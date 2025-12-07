@@ -21,6 +21,7 @@ const LoginForm = () => {
   const [showPassword, setShowPassword] = React.useState(false);
   const [loginInput, setLoginInput] = React.useState("");
   const [password, setPassword] = React.useState("");
+  const [employeeId, setEmployeeId] = React.useState("");
 
   const handleSubmit = async (e) => {
     e.preventDefault();

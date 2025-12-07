@@ -13,7 +13,7 @@ const PayslipForm = () => {
     const [basicSalary, setBasicSalary] = useState("");
     const [da, setDa] = useState("");
     const [hra, setHra] = useState("");
-    const [cca, setCca] = useState("Not-Applicable");
+    const [cca, setCca] = useState("");
     const [incentive, setIncentive] = useState("");
     const [errors, setErrors] = useState({});
     const navigate = useNavigate()
@@ -51,11 +51,13 @@ const PayslipForm = () => {
     const calculateAllowances = (salary) => {
         if (salary && !isNaN(salary)) {
             const salaryValue = parseFloat(salary);
-            setDa((salaryValue * 0.1).toFixed(2));
-            setHra((salaryValue * 0.1).toFixed(2));
+            setDa((salaryValue * 0.20).toFixed(2));
+            setHra((salaryValue * 0.20).toFixed(2));
+            setCca((salaryValue * 0.10).toFixed(2));
         } else {
             setDa("");
             setHra("");
+            setCca("");
         }
     };
 
@@ -120,7 +122,7 @@ const PayslipForm = () => {
         tempErrors.basicSalary = basicSalary ? "" : "Enter basic salary";
         tempErrors.da = da ? "" : "Enter DA";
         tempErrors.hra = hra ? "" : "Enter HRA";
-        tempErrors.cca = cca ? "" : "Enter CCA";
+        tempErrors.cca = cca ? "" : "Enter Transportation Allowance";
 
         setErrors(tempErrors);
         return Object.values(tempErrors).every((x) => x === "");
@@ -223,7 +225,6 @@ const PayslipForm = () => {
                         label="Basic Salary"
                         type="number"
                         fullWidth
-
                         value={basicSalary}
                         onChange={handleBasicSalaryChange}
                         error={!!errors.basicSalary}
@@ -233,10 +234,9 @@ const PayslipForm = () => {
 
                 <Grid size={6}>
                     <TextField
-                        label="DA (10%)"
+                        label="DA (20%)"
                         type="number"
                         fullWidth
-
                         value={da}
                         onChange={(e) => setDa(e.target.value)}
                         error={!!errors.da}
@@ -246,17 +246,26 @@ const PayslipForm = () => {
 
                 <Grid size={6}>
                     <TextField
-                        label="HRA (10%)"
+                        label="HRA (20%)"
                         type="number"
                         fullWidth
-
                         value={hra}
                         onChange={(e) => setHra(e.target.value)}
                         error={!!errors.hra}
                         helperText={errors.hra}
                     />
                 </Grid>
-
+                <Grid size={6}>
+                    <TextField
+                        label="Transportation Allowance (20%)"
+                        type="number"
+                        fullWidth
+                        value={cca}
+                        onChange={(e) => setCca(e.target.value)}
+                        error={!!errors.cca}
+                        helperText={errors.cca}
+                    />
+                </Grid>
                 <Grid size={6}>
                     <TextField
                         label="Incentive"
@@ -267,17 +276,6 @@ const PayslipForm = () => {
                     />
                 </Grid>
 
-                <Grid size={6}>
-                    <TextField
-                        label="CCA"
-                        type="text"
-                        fullWidth
-                        value={cca}
-                        onChange={(e) => setCca(e.target.value)}
-                        error={!!errors.cca}
-                        helperText={errors.cca}
-                    />
-                </Grid>
                 <Button
                     variant="contained"
                     color="primary"

@@ -16,6 +16,7 @@ var jobassignRouter = require('./routes/jobassign')
 var managerRouter = require('./routes/manager')
 var holidayRouter = require('./routes/holiday')
 var employeeRouter = require('./routes/employee')
+var employeeLeaveRouter = require('./routes/employeeLeave');
 
 var app = express();
 
@@ -39,6 +40,8 @@ app.use('/jobassign', jobassignRouter);
 app.use('/manager', managerRouter);
 app.use('/holiday', holidayRouter);
 app.use('/employee', employeeRouter);
+app.use("/employeeLeave", employeeLeaveRouter);
+app.use("/resume", require("./routes/resumeparser"))
 
 app.use(function (req, res, next) {
   next(createError(404));

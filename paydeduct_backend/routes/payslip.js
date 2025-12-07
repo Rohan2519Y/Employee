@@ -1,6 +1,7 @@
 var express = require('express');
 var router = express.Router();
 var pool = require('./pool');
+var uploadpdf = require('./multerpdf')
 
 router.get('/employee_data', function (req, res, next) {
     try {
@@ -31,6 +32,23 @@ router.get('/fetch_all_payslips', function (req, res, next) {
     }
     catch (e) {
         res.status(200).json({ status: false, message: 'Critical Error,Pls Contact Server Administrator' })
+    }
+});
+
+router.post('/fetch_all_payslip_by_id', function (req, res, next) {
+    console.log(req.body.employeeId)
+    try {
+        pool.query("SELECT P.*,E.* FROM payslip P, employees E where E.employee_id=P.employee_id and E.employee_id=?", [req.body.empid], function (error, result) {
+            if (error) {
+                res.status(201).json({ status: false, message: 'Database Error,Pls Contact Backend Team' })
+            }
+            else {
+                res.status(200).json({ status: true, message: 'Services Successfully Submitted..', data: result })
+            }
+        })
+    }
+    catch (e) {
+        res.status(202).json({ status: false, message: 'Critical Error,Pls Contact Server Administrator' })
     }
 });
 
@@ -85,6 +103,22 @@ router.post('/insert_payslip', function (req, res, next) {
     }
     catch (e) {
         res.status(200).json({ status: false, message: 'Critical Error,Pls Contact Server Administrator' })
+    }
+});
+router.post('/insert_payslip_pdf', uploadpdf.single('pdf'), function (req, res, next) {
+    try {
+        pool.query("update payslip set pdf=? where payslip_id=?", [req.file.filename, req.body.payid], function (error, result) {
+            if (error) {
+                console.log(error)
+                res.status(201).json({ status: false, message: 'Database Error,Pls Contact Backend Team' })
+            }
+            else {
+                res.status(200).json({ status: true, message: 'Services Successfully Submitted..' })
+            }
+        })
+    }
+    catch (e) {
+        res.status(202).json({ status: false, message: 'Critical Error,Pls Contact Server Administrator' })
     }
 });
 
